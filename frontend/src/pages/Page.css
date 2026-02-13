@@ -1,0 +1,63 @@
+.page h2 {
+  margin-top: 0;
+}
+
+.page-loading,
+.page-error {
+  margin: 1rem 0;
+}
+
+.page-error {
+  color: #c00;
+}
+
+.page-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.page-form input,
+.page-form select {
+  min-width: 120px;
+  padding: 0.35rem 0.5rem;
+}
+
+.page-form button {
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+.page-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.page-list-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.page-list-item span {
+  flex: 1;
+  min-width: 100px;
+}
+
+.page-list-item button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .page-list-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -1,0 +1,25 @@
+.layout {
+  min-height: 100vh;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.layout-header {
+  margin-bottom: 1rem;
+}
+
+.layout-title {
+  font-size: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.layout-main {
+  padding-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+  .layout {
+    padding: 0 0.75rem;
+  }
+}

@@ -1,0 +1,24 @@
+import { Amplify } from 'aws-amplify'
+
+const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID
+const userPoolClientId = import.meta.env.VITE_COGNITO_APP_CLIENT_ID
+
+if (userPoolId && userPoolClientId) {
+  Amplify.configure({
+    Auth: {
+      Cognito: {
+        userPoolId,
+        userPoolClientId,
+        loginWith: {
+          email: true,
+        },
+        signUpVerificationMethod: 'code',
+        userAttributes: {
+          email: { required: true },
+        },
+      },
+    },
+  })
+}
+
+export const isAuthConfigured = Boolean(userPoolId && userPoolClientId)
