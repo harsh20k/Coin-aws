@@ -40,6 +40,34 @@ A **smart finance advisor** web app built and deployed on AWS. Users track trans
 
 ---
 
+## User flow
+
+```mermaid
+flowchart LR
+    A[Land on app] --> B{Logged in?}
+    B -->|No| C[Sign up / Log in]
+    C --> D[Authenticated]
+    B -->|Yes| D
+    D --> E[Dashboard]
+    E --> F[Wallets & transactions]
+    E --> G[Budgets & goals]
+    E --> H[AI conversation]
+    F --> F1[Create wallet]
+    F --> F2[Add transaction]
+    F2 --> F2a[Income / Expense / Investment / Donation]
+    G --> G1[Set budget limits]
+    G --> G2[Create goal]
+    H --> H1[Ask question]
+    H1 --> H2[AI response]
+    F1 --> E
+    F2a --> E
+    G1 --> E
+    G2 --> E
+    H2 --> E
+```
+
+---
+
 ## Project Context
 
 - **Course:** CSCI5409 Advanced Topics in Cloud Computing (Winter 2026)  

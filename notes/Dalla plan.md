@@ -6,12 +6,12 @@ A smart finance advisor web-app where users log their transactions and get perso
 
 ## Simple day‑by‑day checklist (Feb 12–23)
 
-### Feb 12 (today)
+### [[Feb 12]] (today) 
 - **Main 1**: Write 3–5 sentences describing what the app will do for a normal user.
 - **Main 2**: Roughly draw the app flow: user → website → server → database → AI advice.
 - **Nice**: Decide tech: React or simple HTML/JS; choose one and stick to it.
 
-### Feb 13
+### [[Feb 13]]
 - **Main 1**: Decide what a “transaction” looks like (fields like amount, date, category, note).
 - **Main 2**: List the screens/pages you will have (add transaction, list, insights).
 - **Nice**: List the buttons/actions you need on each screen.
