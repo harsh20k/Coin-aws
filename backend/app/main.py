@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory
 from app.models import Subcategory, TransactionTypeEnum
@@ -26,21 +27,26 @@ DEFAULT_SUBCATEGORIES = [
 ]
 
 
-async def seed_default_subcategories():
-    async with async_session_factory() as session:
-        for tx_type, name in DEFAULT_SUBCATEGORIES:
-            r = await session.execute(
-                select(Subcategory).where(
-                    Subcategory.transaction_type == tx_type,
-                    Subcategory.name == name,
-                    Subcategory.user_id.is_(None),
-                )
+async def seed_default_subcategories_session(session: AsyncSession) -> None:
+    """Insert default system subcategories if missing. Caller commits."""
+    for tx_type, name in DEFAULT_SUBCATEGORIES:
+        r = await session.execute(
+            select(Subcategory).where(
+                Subcategory.transaction_type == tx_type,
+                Subcategory.name == name,
+                Subcategory.user_id.is_(None),
             )
-            if r.scalar_one_or_none() is None:
-                session.add(
-                    Subcategory(transaction_type=tx_type, name=name, is_system=True, user_id=None)
-                )
-        await session.commit()
+        )
+        if r.scalar_one_or_none() is None:
+            session.add(
+                Subcategory(transaction_type=tx_type, name=name, is_system=True, user_id=None)
+            )
+    await session.commit()
+
+
+async def seed_default_subcategories() -> None:
+    async with async_session_factory() as session:
+        await seed_default_subcategories_session(session)
 
 
 @asynccontextmanager

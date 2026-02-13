@@ -10,7 +10,7 @@ from sqlalchemy.pool import NullPool
 from app.auth import get_current_user_id, get_token_payload
 from app.config import settings
 from app.database import get_db
-from app.main import app
+from app.main import app, seed_default_subcategories_session
 from app.models import User
 
 pytest_plugins = ("pytest_asyncio",)
@@ -29,6 +29,13 @@ test_session_factory = async_sessionmaker(
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+@pytest.fixture
+async def seed_subcategories():
+    """Ensure default system subcategories exist (lifespan does not run under AsyncClient)."""
+    async with test_session_factory() as session:
+        await seed_default_subcategories_session(session)
 
 
 @pytest.fixture
@@ -51,7 +58,7 @@ async def test_user():
 
 
 @pytest.fixture
-async def client(test_user):
+async def client(test_user, seed_subcategories):
     """Async HTTP client with auth overrides so no real Cognito is needed."""
     user_id, cognito_sub = test_user
 
