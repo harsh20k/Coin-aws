@@ -4,13 +4,27 @@ REST API for the Dalla finance app. Uses PostgreSQL and Cognito JWT auth.
 
 ## Setup
 
-1. Create a PostgreSQL database and run the schema (see `../notes/schema.md` or the SQL in the project docs).
-2. Copy `.env.example` to `.env` and set:
-   - `DATABASE_URL` — e.g. `postgresql+asyncpg://user:pass@localhost:5432/dalla`
+1. Start PostgreSQL (e.g. `brew services start postgresql@14`).
+2. Create the database. On Homebrew PostgreSQL the default superuser is your macOS user, not `postgres`:
+
+   ```bash
+   createdb dalla
+   # or: psql -d postgres -c "CREATE DATABASE dalla;"
+   ```
+
+3. Create tables from SQLAlchemy models (no need to run SQL by hand):
+
+   ```bash
+   cd backend
+   python -m scripts.create_tables
+   ```
+
+4. Copy `.env.example` to `.env` and set:
+   - `DATABASE_URL` — e.g. `postgresql+asyncpg://localhost/dalla` (use `127.0.0.1` if you get IPv6 connection refused)
    - `COGNITO_USER_POOL_ID` — Cognito user pool ID
    - `COGNITO_APP_CLIENT_ID` — Cognito app client ID
    - `COGNITO_REGION` — e.g. `us-east-1` (optional, default `us-east-1`)
-3. Install and run:
+5. Install and run:
 
 ```bash
 pip install -r requirements.txt
@@ -32,3 +46,17 @@ All endpoints except `GET /health` and (for first-time users) `PUT /users/me` re
 - `GET /budgets?period_start=&period_end=`, `POST /budgets`, `GET/PUT/DELETE /budgets/{id}`
 - `GET /goals?period_start=&period_end=`, `POST /goals`, `GET/PUT/DELETE /goals/{id}`
 - `POST /chat` — Stub; body `{"message": "..."}`, returns placeholder reply (wire to Bedrock later).
+
+## Tests
+
+Uses pytest and pytest-asyncio. Auth is overridden so no real Cognito is needed; a test user is created per run.
+
+- PostgreSQL must be running and `DATABASE_URL` must point to an existing DB (e.g. `dalla`); run `python -m scripts.create_tables` if tables don’t exist yet.
+- Install deps in the same env you use for pytest: `pip install -r requirements.txt` (so `python-jose` etc. are available).
+
+```bash
+cd backend
+pytest
+```
+
+Run with verbose: `pytest -v`
