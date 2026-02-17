@@ -1,15 +1,28 @@
 terraform {
   required_providers {
-    aws = { source = "hashicorp/aws" }
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.5"
+    }
   }
+
+  required_version = ">= 1.5.0"
 }
 
 provider "aws" {
-  region = "us-east-1"  # or var.region
+  region = var.aws_region
+}
+
+locals {
+  project_name = var.project_name
 }
 
 resource "aws_cognito_user_pool" "main" {
-  name = "dalla-pool"
+  name = "${local.project_name}-pool"
 
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
@@ -26,7 +39,7 @@ resource "aws_cognito_user_pool" "main" {
 }
 
 resource "aws_cognito_user_pool_client" "app" {
-  name         = "dalla-app"
+  name         = "${local.project_name}-app"
   user_pool_id = aws_cognito_user_pool.main.id
 
   generate_secret     = false

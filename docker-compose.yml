@@ -33,8 +33,6 @@ services:
       - backend
     env_file:
       - ./frontend/.env
-    environment:
-      VITE_API_URL: http://backend:8000
     ports:
       - "5173:5173"
 

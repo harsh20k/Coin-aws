@@ -75,7 +75,16 @@ You can also run PostgreSQL, the backend, and the frontend together using Docker
      - For Docker, set:
        - `VITE_API_URL=http://backend:8000`
 
-2. **Build and start all services**
+2. **Create tables in the Docker database (first run)**
+
+   With the `db` service running, create tables using a one-off backend container:
+
+   ```bash
+   docker compose up -d db
+   docker compose run --rm backend python -m scripts.create_tables
+   ```
+
+3. **Build and start all services**
 
    From the repo root:
 
@@ -88,14 +97,6 @@ You can also run PostgreSQL, the backend, and the frontend together using Docker
    - `db` — PostgreSQL (database `dalla`, user `dalla`, password `dalla`)
    - `backend` — FastAPI API on `http://localhost:8000`
    - `frontend` — Vite dev server on `http://localhost:5173`
-
-3. **Create tables in the Docker database (first run)**
-
-   Once containers are up, run:
-
-   ```bash
-   docker compose exec backend python -m scripts.create_tables
-   ```
 
 4. **Use the app**
 

@@ -6,6 +6,7 @@
       {
         "id": "6183ee9e399a3658",
         "type": "tabs",
+        "dimension": 47.75064267352185,
         "children": [
           {
             "id": "beefa9b3ddbd3542",
@@ -26,6 +27,7 @@
       {
         "id": "bc4623c1f8d06945",
         "type": "tabs",
+        "dimension": 52.249357326478155,
         "children": [
           {
             "id": "3726c6c210f25579",
@@ -202,23 +204,24 @@
   },
   "active": "3726c6c210f25579",
   "lastOpenFiles": [
+    "infra/terraform/ecr.tf",
+    "infra/terraform/monitoring.tf",
+    "infra/terraform/frontend.tf",
+    "infra/terraform/ssm.tf",
+    "infra/terraform/alb.tf",
+    "infra/terraform/ec2.tf",
+    "infra/terraform/rds.tf",
+    "infra/terraform/outputs.tf",
+    "infra/terraform/networking.tf",
+    "infra/terraform/variables.tf",
     "notes/Dalla plan.md",
-    "docker-compose.yml",
-    "frontend/Dockerfile",
-    "backend/Dockerfile",
     "Feb 17.md",
+    "docker-compose.yml",
     "notes/progress.md",
     "notes/aws-lex-bedrock-and-related-services.md",
     "notes/Deploy-local.md",
     "README.md",
-    "infra/terraform/terraform.tfstate.backup",
-    "infra/terraform/terraform.tfstate",
-    "infra/terraform/main.tf",
-    "infra/terraform",
-    "infra",
     "notes/provisioning-cognito-userpool.md",
-    "frontend/node_modules/fsevents/package.json",
-    "frontend/node_modules/fsevents/fsevents.node",
     "frontend/node_modules/fsevents/README.md",
     "frontend/README.md",
     "frontend/node_modules/rxjs/README.md",
