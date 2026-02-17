@@ -33,6 +33,8 @@ uvicorn app.main:app --reload
 
 API docs: http://localhost:8000/docs
 
+To run the backend as part of a full Docker setup (PostgreSQL + backend + frontend), see `notes/Deploy-local.md`.
+
 ## Auth
 
 All endpoints except `GET /health` and (for first-time users) `PUT /users/me` require a valid Cognito JWT in the `Authorization: Bearer <token>` header. After sign-in, call `PUT /users/me` to create or update the app user; then use `get_current_user_id` for all other routes.

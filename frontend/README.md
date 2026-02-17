@@ -45,8 +45,22 @@ React SPA for the Dalla finance app. Uses the FastAPI backend and Cognito for au
 
 3. Open the app in the browser. Sign in with Cognito; the app will call `PUT /users/me` to register or update your user.
 
+To run the frontend as part of a full Docker setup (PostgreSQL + backend + frontend), see `notes/Deploy-local.md`.
+
 ## Scripts
 
 - `npm run dev` — Start dev server with hot reload
 - `npm run build` — Production build (output in `dist/`)
 - `npm run preview` — Serve the production build locally
+
+
+## Screens
+
+- **Dashboard** (`/`) — Landing view after sign-in.
+- **Wallets** (`/wallets`) — List and manage wallets.
+- **Transactions** (`/transactions`) — List and manage transactions.
+- **Budgets** (`/budgets`) — View and manage budgets.
+- **Goals** (`/goals`) — View and manage goals.
+- **Chat** (`/chat`) — AI conversation (backend stub; Bedrock not wired yet).
+
+All screens sit inside a shared **Layout** with navigation. Auth is required (except sign-in); unauthenticated users are redirected by `AuthGuard`.
