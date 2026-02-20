@@ -77,6 +77,12 @@ resource "aws_iam_role_policy_attachment" "backend_ssm_access" {
   policy_arn = aws_iam_policy.backend_ssm_access.arn
 }
 
+# Allow instance to pull backend image from ECR (for user_data and manual docker pull)
+resource "aws_iam_role_policy_attachment" "backend_ecr_read" {
+  role       = aws_iam_role.backend.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
 resource "aws_iam_instance_profile" "backend" {
   name = "${local.project_name}-backend-instance-profile"
   role = aws_iam_role.backend.name

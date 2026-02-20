@@ -68,6 +68,12 @@ flowchart LR
 
 ---
 
+## Deploy on AWS
+
+See **`notes/Deploy-AWS.md`** for full steps (Terraform, ECR, DB schema, frontend build and S3 sync). After deploy, open the app via the CloudFront URL using **http** (not https) so the browser allows the HTTP backend (mixed-content workaround).
+
+---
+
 ## Project Context
 
 - **Course:** CSCI5409 Advanced Topics in Cloud Computing (Winter 2026)  

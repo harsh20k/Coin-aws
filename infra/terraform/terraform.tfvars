@@ -1,6 +1,7 @@
 # Copy to terraform.tfvars and fill in. Never commit terraform.tfvars.
 
 aws_region   = "us-east-1"
+aws_profile  = "dalla-project-owner"   # AWS CLI profile with deploy permissions (e.g. dalla-project-owner)
 project_name = "dalla"
 
 # Required: EC2 key pair name (create in AWS first)
