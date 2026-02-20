@@ -1,0 +1,36 @@
+# Environment and secrets (do not commit)
+.env
+.env.local
+*.local
+backend/.env
+# Terraform: state and local vars (terraform.tfvars.example is the template)
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/terraform.tfvars
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+*.egg-info/
+.eggs/
+
+# Node / frontend (frontend/.gitignore also has node_modules, dist, .env)
+node_modules/
+dist/
+
+# OS and IDE
+.DS_Store
+.idea/
+*.swp
+*.swo
+*.log
+
+.cursor/
+.obsidian/
