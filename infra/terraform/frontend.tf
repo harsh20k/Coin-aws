@@ -138,5 +138,5 @@ output "cloudfront_url" {
 
 output "frontend_api_url_placeholder" {
   description = "Set VITE_API_URL to this (or api_url output) when building the frontend"
-  value       = "https://${aws_lb.backend.dns_name}"
+  value       = var.route53_zone_id != "" && var.api_domain_name != "" ? "http://${var.api_domain_name}" : "http://${aws_eip.backend.public_ip}:${var.backend_port}"
 }

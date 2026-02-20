@@ -51,44 +51,18 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Security group for the ALB
-resource "aws_security_group" "alb" {
-  name        = "${local.project_name}-alb-sg"
-  description = "Allow HTTP/HTTPS from the internet to ALB"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description = "HTTP from anywhere"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "${local.project_name}-alb-sg"
-  }
-}
-
-# Security group for backend EC2 instances
+# Security group for backend EC2 instances (direct access; no ALB)
 resource "aws_security_group" "backend" {
   name        = "${local.project_name}-backend-sg"
-  description = "Allow traffic from ALB to backend and SSH for admin"
+  description = "Allow HTTP to backend and SSH for admin"
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description     = "Backend port from ALB"
-    from_port       = var.backend_port
-    to_port         = var.backend_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
+    description = "Backend API from internet"
+    from_port   = var.backend_port
+    to_port     = var.backend_port
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {

@@ -204,6 +204,7 @@
   },
   "active": "3726c6c210f25579",
   "lastOpenFiles": [
+    "infra/terraform/terraform.tfvars.example",
     "infra/terraform/ecr.tf",
     "infra/terraform/monitoring.tf",
     "infra/terraform/frontend.tf",
@@ -216,7 +217,6 @@
     "infra/terraform/variables.tf",
     "notes/Dalla plan.md",
     "Feb 17.md",
-    "docker-compose.yml",
     "notes/progress.md",
     "notes/aws-lex-bedrock-and-related-services.md",
     "notes/Deploy-local.md",

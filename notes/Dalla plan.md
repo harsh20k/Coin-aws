@@ -17,9 +17,9 @@ A smart finance advisor web-app where users log their transactions and get perso
 - **Nice**: List the buttons/actions you need on each screen.
 
 ### [[Feb 17]]
-- **Main 1**: Add Dockerfiles for backend and frontend so the app can run in containers.
-- **Main 2**: Add Docker Compose to run db, backend, and frontend locally with one command.
-- **Nice**: Note the run commands in Deploy-local.md or README.
+- **Main 1**: Build and push the backend Docker image to ECR, and update `terraform.tfvars` with the image URI and EC2 key pair.
+- **Main 2**: Run `terraform apply` to create VPC, RDS, EC2, ALB, SSM, S3, and CloudFront, then smoke-test the app via the cloud URLs.
+- **Nice**: Jot down a short “cloud deploy checklist” in `Feb 17.md` or `progress.md` so you can redeploy quickly.
 
 ### Feb 18
 - **Main 1**: Add Terraform for deploy foundation: VPC (if needed), RDS (Postgres), and ECR repos for backend and frontend images.
@@ -27,9 +27,9 @@ A smart finance advisor web-app where users log their transactions and get perso
 - **Nice**: Get Docker images building and pushed to ECR (or at least build and run via Docker Compose locally).
 
 ### Feb 19
-- **Main 1**: Run the containerized app on ECS (Fargate); backend talks to RDS, frontend to backend.
-- **Main 2**: Add health checks and confirm the app is reachable via the ALB URL.
-- **Nice**: Confirm project requirements: at least one service each from Compute, Storage, Networking, Database; IaC; runs within AWS Academy constraints.
+- **Main 1**: Fix ALB 502: check target group health, confirm backend container is running on EC2, and fix SSM/DB if needed (see Feb 19.md).
+- **Main 2**: Smoke-test the backend via ALB URL (`/health` returns 200) and optionally deploy and test the frontend via CloudFront.
+- **Nice**: Confirm project requirements: Compute, Storage, Networking, Database, IaC; runs within AWS Academy constraints.
 
 ### Feb 20
 - **Main 1**: Wire CI/CD: CodeCommit (or source repo), CodeBuild (build and test), CodePipeline (trigger on push).

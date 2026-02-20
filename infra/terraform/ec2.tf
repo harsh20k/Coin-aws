@@ -82,6 +82,13 @@ resource "aws_iam_instance_profile" "backend" {
   role = aws_iam_role.backend.name
 }
 
+resource "aws_eip" "backend" {
+  domain = "vpc"
+  tags = {
+    Name = "${local.project_name}-backend-eip"
+  }
+}
+
 resource "aws_instance" "backend" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.ec2_instance_type
@@ -128,6 +135,20 @@ resource "aws_instance" "backend" {
   ]
 }
 
+resource "aws_eip_association" "backend" {
+  instance_id   = aws_instance.backend.id
+  allocation_id = aws_eip.backend.id
+}
+
+resource "aws_route53_record" "api" {
+  count   = var.route53_zone_id != "" && var.api_domain_name != "" ? 1 : 0
+  zone_id = var.route53_zone_id
+  name    = var.api_domain_name
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.backend.public_ip]
+}
+
 data "aws_ami" "ubuntu" {
   most_recent = true
 
@@ -147,5 +168,15 @@ data "aws_ami" "ubuntu" {
 output "backend_instance_id" {
   description = "ID of the backend EC2 instance"
   value       = aws_instance.backend.id
+}
+
+output "api_url" {
+  description = "URL to reach the backend API (EIP or Route 53 if set)"
+  value       = var.route53_zone_id != "" && var.api_domain_name != "" ? "http://${var.api_domain_name}" : "http://${aws_eip.backend.public_ip}:${var.backend_port}"
+}
+
+output "backend_public_ip" {
+  description = "Public IP of the backend EC2 (Elastic IP)"
+  value       = aws_eip.backend.public_ip
 }
 

@@ -34,3 +34,15 @@ variable "ssh_ingress_cidr" {
   default     = "0.0.0.0/0"
 }
 
+variable "route53_zone_id" {
+  description = "Route 53 hosted zone ID for API record (leave empty to skip DNS)"
+  type        = string
+  default     = ""
+}
+
+variable "api_domain_name" {
+  description = "Domain name for the backend API (e.g. api.dalla.example.com)"
+  type        = string
+  default     = ""
+}
+

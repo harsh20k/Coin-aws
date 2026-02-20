@@ -8,7 +8,7 @@ resource "aws_cloudwatch_log_group" "backend" {
   }
 }
 
-# Alarms: EC2 CPU, RDS connections, ALB 5xx
+# Alarms: EC2 CPU, RDS connections
 resource "aws_cloudwatch_metric_alarm" "backend_cpu" {
   alarm_name          = "${local.project_name}-backend-high-cpu"
   comparison_operator = "GreaterThanThreshold"
@@ -44,25 +44,6 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
 
   tags = {
     Name = "${local.project_name}-rds-cpu-alarm"
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
-  alarm_name          = "${local.project_name}-alb-5xx"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods   = 2
-  metric_name         = "HTTPCode_ELB_5XX_Count"
-  namespace           = "AWS/ApplicationELB"
-  period              = 300
-  statistic           = "Sum"
-  threshold           = 5
-
-  dimensions = {
-    LoadBalancer = aws_lb.backend.arn_suffix
-  }
-
-  tags = {
-    Name = "${local.project_name}-alb-5xx-alarm"
   }
 }
 
