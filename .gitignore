@@ -5,6 +5,8 @@
 backend/.env
 # Terraform: state and local vars (terraform.tfvars.example is the template)
 infra/terraform/.terraform/
+*.tfstate
+*.tfstate.*
 infra/terraform/*.tfstate
 infra/terraform/*.tfstate.*
 infra/terraform/terraform.tfvars
