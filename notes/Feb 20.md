@@ -26,3 +26,15 @@
 **Proper fix (for later):** Serve the API over HTTPS (e.g. ALB HTTPS + ACM cert, or proxy `/api/*` through CloudFront to backend) and keep `redirect-to-https` for the frontend.
 
 **Result:** Solution confirmed working. After `terraform apply`, open the app at **http://**&lt;cloudfront-domain&gt; (e.g. `terraform output cloudfront_url` then change `https` to `http`). Signup, login, Wallets, and API calls work.
+
+---
+
+## RDS MasterUserPassword invalid characters (Feb 20)
+
+**Symptom:** `terraform apply` fails creating RDS with: `InvalidParameterValue: The parameter MasterUserPassword is not a valid password. Only printable ASCII characters besides '/', '@', '"', ' ' may be used.`
+
+**Root cause:** Terraform `random_password` with `special = true` uses a default set that can include `@`, `/`, `"`, or space. RDS disallows those in the master password.
+
+**Fix (applied in `infra/terraform/rds.tf`):** Set `override_special` on `random_password` so only RDS-allowed specials are used, e.g. `override_special = "!#$%&*()-_=+[]{}<>:?"` (no `/`, `@`, `"`, or space). After changing this, if the DB instance was partially created, destroy and re-apply so the new password is used.
+
+![[Pasted image 20260220231514.png]]

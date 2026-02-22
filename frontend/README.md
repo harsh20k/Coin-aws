@@ -1,6 +1,6 @@
-# Dalla Frontend
+# theCOin Frontend
 
-React SPA for the Dalla finance app. Uses the FastAPI backend and Cognito for auth.
+React SPA for the theCOin finance app. Uses the FastAPI backend and Cognito for auth.
 
 ## Setup
 

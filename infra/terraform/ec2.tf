@@ -38,6 +38,12 @@ variable "ssm_cognito_app_client_id_parameter_name" {
   default     = "/dalla/prod/COGNITO_APP_CLIENT_ID"
 }
 
+variable "ssm_api_url_parameter_name" {
+  description = "SSM parameter name for API URL (used by frontend build)"
+  type        = string
+  default     = "/dalla/prod/API_URL"
+}
+
 data "aws_iam_policy_document" "ec2_assume_role" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -81,6 +87,12 @@ resource "aws_iam_role_policy_attachment" "backend_ssm_access" {
 resource "aws_iam_role_policy_attachment" "backend_ecr_read" {
   role       = aws_iam_role.backend.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+# Allow SSM Run Command to run scripts on the instance (for pipeline deploy)
+resource "aws_iam_role_policy_attachment" "backend_ssm_managed_core" {
+  role       = aws_iam_role.backend.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_instance_profile" "backend" {
@@ -184,5 +196,17 @@ output "api_url" {
 output "backend_public_ip" {
   description = "Public IP of the backend EC2 (Elastic IP)"
   value       = aws_eip.backend.public_ip
+}
+
+# API URL for frontend build (CodeBuild reads this as VITE_API_URL)
+resource "aws_ssm_parameter" "api_url" {
+  name        = var.ssm_api_url_parameter_name
+  description = "Backend API URL for frontend build"
+  type        = "String"
+  value       = var.route53_zone_id != "" && var.api_domain_name != "" ? "http://${var.api_domain_name}" : "http://${aws_eip.backend.public_ip}:${var.backend_port}"
+
+  tags = {
+    Name = "${local.project_name}-api-url"
+  }
 }
 

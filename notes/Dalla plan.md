@@ -32,9 +32,9 @@ A smart finance advisor web-app where users log their transactions and get perso
 - **Nice**: Confirm project requirements: Compute, Storage, Networking, Database, IaC; runs within AWS Academy constraints.
 
 ### Feb 20
-- **Main 1**: Wire CI/CD: CodeCommit (or source repo), CodeBuild (build and test), CodePipeline (trigger on push).
-- **Main 2**: Achieve a single-command or push-based deploy (pipeline builds images, updates ECS services).
-- **Nice**: Store env and secrets (e.g. `DATABASE_URL`, Cognito) via Terraform/Secrets Manager for the pipeline and ECS.
+- **Main 1**: Smoke-test backend and frontend in cloud (health, login, one flow via http CloudFront URL).
+- **Main 2**: Confirm DB schema and full E2E (e.g. wallets or transactions) in cloud.
+- **Nice**: Update progress.md and remaining-steps list.
 
 ### Feb 21
 - **Main 1**: Ensure create/edit/delete for wallets and transactions work end-to-end in the UI and backend.

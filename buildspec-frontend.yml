@@ -1,0 +1,28 @@
+# Build frontend and deploy to S3 + CloudFront invalidation (CodeBuild)
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Fetching build-time config from SSM..."
+      - export VITE_API_URL=$(aws ssm get-parameter --name "$SSM_API_URL" --with-decryption --region "$AWS_REGION" --query "Parameter.Value" --output text)
+      - export VITE_COGNITO_REGION=$(aws ssm get-parameter --name "$SSM_COGNITO_REGION" --with-decryption --region "$AWS_REGION" --query "Parameter.Value" --output text)
+      - export VITE_COGNITO_USER_POOL_ID=$(aws ssm get-parameter --name "$SSM_COGNITO_USER_POOL_ID" --with-decryption --region "$AWS_REGION" --query "Parameter.Value" --output text)
+      - export VITE_COGNITO_APP_CLIENT_ID=$(aws ssm get-parameter --name "$SSM_COGNITO_APP_CLIENT_ID" --with-decryption --region "$AWS_REGION" --query "Parameter.Value" --output text)
+      - echo "Installing dependencies..."
+      - cd frontend && npm ci
+  build:
+    commands:
+      - echo "Building frontend..."
+      - npm run build
+  post_build:
+    commands:
+      - echo "Syncing to S3..."
+      - aws s3 sync dist/ s3://$FRONTEND_BUCKET/ --delete
+      - echo "Invalidating CloudFront..."
+      - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
+artifacts:
+  files: []
+cache:
+  paths:
+    - frontend/node_modules/**/*

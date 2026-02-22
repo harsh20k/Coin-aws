@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Dalla API", lifespan=lifespan)
+app = FastAPI(title="theCoin API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -75,4 +75,4 @@ app.include_router(chat.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "app": "theCoin API"}

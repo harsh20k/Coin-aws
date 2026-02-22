@@ -19,6 +19,25 @@ resource "aws_s3_bucket" "frontend" {
   }
 }
 
+# Empty bucket on destroy (S3 cannot delete non-empty versioned buckets)
+resource "null_resource" "empty_frontend_bucket" {
+  triggers = { bucket = aws_s3_bucket.frontend.id }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      BUCKET="${self.triggers.bucket}"
+      aws s3api list-object-versions --bucket "$BUCKET" --query 'Versions[].{Key:Key,VersionId:VersionId}' --output text | while IFS=$'\t' read -r key vid; do [ -n "$key" ] && aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$vid" 2>/dev/null || true; done
+      aws s3api list-object-versions --bucket "$BUCKET" --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' --output text | while IFS=$'\t' read -r key vid; do [ -n "$key" ] && aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$vid" 2>/dev/null || true; done
+    EOT
+  }
+
+  depends_on = [
+    aws_s3_bucket_versioning.frontend,
+    aws_s3_bucket_policy.frontend,
+  ]
+}
+
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 

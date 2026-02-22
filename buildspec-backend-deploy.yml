@@ -1,0 +1,48 @@
+# Deploy backend: SSM Run Command to pull new image and restart container (CodeBuild)
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - ECR_REGISTRY="${ECR_REPOSITORY_URI%/*}"
+      - |
+        SCRIPT='set -e
+        REGION="__REGION__"
+        DATABASE_URL=$(aws ssm get-parameter --name "__SSM_DATABASE_URL__" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
+        COGNITO_REGION=$(aws ssm get-parameter --name "__SSM_COGNITO_REGION__" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
+        COGNITO_USER_POOL_ID=$(aws ssm get-parameter --name "__SSM_COGNITO_USER_POOL_ID__" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
+        COGNITO_APP_CLIENT_ID=$(aws ssm get-parameter --name "__SSM_COGNITO_APP_CLIENT_ID__" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
+        aws ecr get-login-password --region "$REGION" | sudo docker login --username AWS --password-stdin __ECR_REGISTRY__
+        sudo docker pull __ECR_URI__
+        sudo docker stop backend 2>/dev/null || true
+        sudo docker rm backend 2>/dev/null || true
+        sudo docker run -d --name backend -p __PORT__:__PORT__ -e DATABASE_URL="$DATABASE_URL" -e COGNITO_REGION="$COGNITO_REGION" -e COGNITO_USER_POOL_ID="$COGNITO_USER_POOL_ID" -e COGNITO_APP_CLIENT_ID="$COGNITO_APP_CLIENT_ID" __ECR_URI__'
+      - |
+        SCRIPT=$(echo "$SCRIPT" | sed "s|__REGION__|$AWS_REGION|g" | sed "s|__SSM_DATABASE_URL__|$SSM_DATABASE_URL|g" | sed "s|__SSM_COGNITO_REGION__|$SSM_COGNITO_REGION|g" | sed "s|__SSM_COGNITO_USER_POOL_ID__|$SSM_COGNITO_USER_POOL_ID|g" | sed "s|__SSM_COGNITO_APP_CLIENT_ID__|$SSM_COGNITO_APP_CLIENT_ID|g" | sed "s|__ECR_REGISTRY__|$ECR_REGISTRY|g" | sed "s|__ECR_URI__|$ECR_REPOSITORY_URI|g" | sed "s|__PORT__|$BACKEND_PORT|g")
+      - echo "Sending SSM Run Command to instance $BACKEND_INSTANCE_ID..."
+      - echo "$SCRIPT" | python3 -c "import sys,json; open('script_param.json','w').write(json.dumps({'commands': [sys.stdin.read()]}))"
+      - |
+        CMD_ID=$(aws ssm send-command \
+          --instance-ids "$BACKEND_INSTANCE_ID" \
+          --document-name "AWS-RunShellScript" \
+          --parameters file://script_param.json \
+          --region "$AWS_REGION" \
+          --output text \
+          --query "Command.CommandId")
+        echo "Command ID: $CMD_ID"
+      - echo "Waiting for command to complete..."
+      - |
+        for i in $(seq 1 30); do
+          STATUS=$(aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION --query "Status" --output text 2>/dev/null || echo "Pending")
+          echo "Status: $STATUS"
+          if [ "$STATUS" = "Success" ]; then exit 0; fi
+          if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
+            aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION
+            exit 1
+          fi
+          sleep 10
+        done
+        echo "Timeout waiting for command"
+        exit 1
+artifacts:
+  files: []

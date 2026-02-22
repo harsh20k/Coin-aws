@@ -1,32 +1,78 @@
 # Run Dalla on AWS
 
-Steps to deploy and run the full app (backend + frontend) on AWS using the Terraform stack in `infra/terraform/`.
+Deploy the full app (backend + frontend) using the Terraform stack in `infra/terraform/`.
+
+---
+
+## Contents
+
+1. [Prerequisites](#1-prerequisites)
+2. [First Terraform apply](#2-first-terraform-apply)
+3. [Push code to CodeCommit (CI/CD)](#3-push-code-to-codecommit-cicd)
+4. [Backend DB schema](#4-backend-db-schema)
+5. [Smoke test](#5-smoke-test)
+6. [Caveats](#caveats)
+
+---
 
 ## 1. Prerequisites
 
-- **IAM user/role** used for `terraform` (e.g. `dalla-project-owner`) must allow creating and managing all resources this stack uses. If permissions are missing, apply fails with `AccessDenied` / `UnauthorizedOperation`. This stack needs at least:
-  - **EC2**: DescribeImages, DescribeAvailabilityZones, plus create/manage instances, security groups, launch templates, etc.
-  - **IAM**: CreateRole, CreatePolicy, AttachRolePolicy, PutRolePolicy, PassRole, GetRole, GetPolicy, etc. (for backend instance role and SSM access).
-  - **ECR**: CreateRepository, GetAuthorizationToken, and push permissions for the backend image.
-  - **S3**: CreateBucket, PutBucketPolicy, PutObject, GetObject, etc. (frontend bucket).
-  - **CloudFront**: CreateDistribution, CreateCloudFrontOriginAccessIdentity, Get*, etc.
-  - **Cognito**: CreateUserPool, CreateUserPoolClient, and related read/update.
-  - **CloudWatch Logs**: CreateLogGroup, PutLogEvents, etc.
-  - **RDS**: CreateDBInstance, CreateDBSubnetGroup, etc.
-  - **SSM**: GetParameter, GetParameters, PutParameter (and DeleteParameter if you destroy); required for `/dalla/prod/*` (Terraform reads and writes).
-  **Easiest:** attach these managed policies to the Terraform user: **AmazonEC2FullAccess**, **IAMFullAccess**, **AmazonEC2ContainerRegistryFullAccess**, **AmazonS3FullAccess**, **CloudFrontFullAccess**, **AmazonCognitoPowerUser** (or FullAccess), **CloudWatchLogsFullAccess**, **AmazonRDSFullAccess**, **AmazonSSMFullAccess**. Alternatively use a single custom policy that includes the above actions (and any others this stack uses).
+### IAM
 
-  **If you see `UnauthorizedOperation` for `ec2:DescribeImages` or `ec2:DescribeAvailabilityZones`:** the Terraform IAM user (e.g. `demo-user`) has no EC2 read policy. Attach **AmazonEC2FullAccess** to that user (or a custom policy that allows at least `ec2:DescribeImages` and `ec2:DescribeAvailabilityZones` on `*`).
-- **EC2 key pair** in the target region (create in EC2 → Key Pairs).
-- **`terraform.tfvars`** (copy from `terraform.tfvars.example`) with at least:
+The IAM user/role used for Terraform (e.g. `dalla-project-owner`) must be able to create and manage all stack resources. Missing permissions cause `AccessDenied` / `UnauthorizedOperation`.
+
+**Required permissions (by service):**
+
+
+| Service      | Needs                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------- |
+| EC2          | DescribeImages, DescribeAvailabilityZones, instances, security groups, launch templates, etc.                 |
+| IAM          | CreateRole, CreatePolicy, AttachRolePolicy, PutRolePolicy, PassRole, GetRole, GetPolicy (instance role + SSM) |
+| ECR          | CreateRepository, GetAuthorizationToken, push for backend image                                               |
+| S3           | CreateBucket, PutBucketPolicy, PutObject, GetObject (frontend bucket)                                         |
+| CloudFront   | CreateDistribution, CreateCloudFrontOriginAccessIdentity, Get*, etc.                                          |
+| Cognito      | CreateUserPool, CreateUserPoolClient, read/update                                                             |
+| CloudWatch   | CreateLogGroup, PutLogEvents, etc.                                                                            |
+| RDS          | CreateDBInstance, CreateDBSubnetGroup, etc.                                                                   |
+| SSM          | GetParameter, GetParameters, PutParameter (DeleteParameter for destroy); for `/dalla/prod/*`; SendCommand for pipeline deploy |
+| CodeCommit   | CreateRepository, GetRepository, etc.                                                                         |
+| CodeBuild    | CreateProject, StartBuild, etc.                                                                               |
+| CodePipeline | CreatePipeline, GetPipeline, etc.                                                                              |
+
+
+**Easiest:** attach these managed policies to the Terraform user:
+
+- AmazonEC2FullAccess  
+- IAMFullAccess  
+- AmazonEC2ContainerRegistryFullAccess  
+- AmazonS3FullAccess  
+- CloudFrontFullAccess  
+- AmazonCognitoPowerUser (or FullAccess)  
+- CloudWatchLogsFullAccess  
+- AmazonRDSFullAccess  
+- AmazonSSMFullAccess  
+- AWSCodeCommitFullAccess  
+- AWSCodeBuildAdminAccess  
+- AWSCodePipelineFullAccess
+
+**If you see `UnauthorizedOperation` for `ec2:DescribeImages` or `ec2:DescribeAvailabilityZones`:** attach **AmazonEC2FullAccess** (or a custom policy with at least those two actions on `*`) to the Terraform user.
+
+### Other
+
+- **EC2 key pair** in the target region (EC2 → Key Pairs).
+- `**terraform.tfvars`** (from `terraform.tfvars.example`) with at least:
   - `aws_region`, `project_name`
-  - `ec2_key_name` = that key pair name
+  - `ec2_key_name` = key pair name
   - `backend_image_uri` = ECR URI (see step 3)
-  - `aws_profile` = your named AWS CLI profile with deploy permissions (e.g. `dalla-project-owner`), or leave empty to use default credentials. Use the **same profile** for all `aws` commands below (ECR login, S3 sync, CloudFront).
+  - `aws_profile` = AWS CLI profile with deploy permissions (e.g. `dalla-project-owner`), or leave empty for default credentials.
+
+Use the **same profile** for all `aws` commands (ECR login, S3 sync, CloudFront).
+
+---
 
 ## 2. First Terraform apply
 
-Use the ECR URI Terraform will create (replace account/region if needed):
+Set the ECR URI Terraform will create (replace account/region if needed):
 
 ```hcl
 backend_image_uri = "<ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/dalla-backend:latest"
@@ -46,31 +92,44 @@ terraform init
 terraform apply
 ```
 
-This creates VPC, RDS, Cognito, ECR, backend EC2 with Elastic IP, S3, CloudFront, and SSM (including `DATABASE_URL` from RDS). The EC2 will only run the backend once the image exists (step 3). Backend is reached at `terraform output api_url` (e.g. `http://<eip>:8000`).
+**Creates:** VPC, RDS, Cognito, ECR, backend EC2 (Elastic IP), S3, CloudFront, SSM, **CodeCommit repo**, **CodeBuild projects**, and **CodePipeline**. Backend runs only after the image exists (pipeline build or one-time manual push, see below). API URL: `terraform output api_url` (e.g. `http://<eip>:8000`).
 
-## 3. Backend image → ECR
+---
 
-From repo root. Use the same AWS profile as Terraform (e.g. `dalla-project-owner`); otherwise ECR login can fail with `AccessDeniedException` or `ecr:GetAuthorizationToken` if your default credentials lack ECR access.
+## 3. Push code to CodeCommit (CI/CD)
+
+The pipeline builds and deploys automatically when you push to the CodeCommit repository.
+
+### One-time: add CodeCommit as a remote and push
+
+Get the clone URL from Terraform:
 
 ```bash
-# ECR login (set AWS_PROFILE to the profile you use for Terraform)
-AWS_PROFILE=dalla-project-owner aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
-
-# Build for EC2 (linux/amd64). Required on Apple Silicon / arm64 Macs so the image runs on x86_64 EC2.
-docker build --platform linux/amd64 -t dalla-backend ./backend
-# Tag and push using the full ECR URL (replace <ACCOUNT_ID> with your account ID)
-docker tag dalla-backend:latest <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/dalla-backend:latest
-docker push <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/dalla-backend:latest
+cd infra/terraform
+terraform output codecommit_repository_https_url
+# or for SSH: terraform output codecommit_repository_url
 ```
-Replace `<ACCOUNT_ID>` with your AWS account ID (same as in the ECR login URL above). If you build on an arm64 Mac without `--platform linux/amd64`, EC2 will fail with "no matching manifest for linux/amd64".
 
-Set the same URI in `terraform.tfvars` as `backend_image_uri`, then either run `terraform apply` again so the EC2 launch config uses it, or restart the instance so it pulls and runs the container.
+From your repo root (where you run git), add the remote and push. The pipeline watches the **main** branch by default (set `codecommit_branch` in Terraform to use another branch):
+
+```bash
+git remote add codecommit <PASTE_HTTPS_OR_SSH_URL>
+git push codecommit main
+```
+
+(Use your default branch name if different, e.g. `master` — and set `codecommit_branch` in `terraform.tfvars` to match.)
+
+**First run:** If the backend image is not in ECR yet, either run the pipeline once (it will build and push the image, then deploy), or push the image manually (see Caveats) and create DB tables (step 4) before the deploy step runs. The pipeline will: build backend image → push to ECR → run SSM Run Command on the backend EC2 to pull and restart the container → build frontend with SSM config → sync to S3 → invalidate CloudFront.
+
+---
 
 ## 4. Backend DB schema
 
-RDS is created empty and is not publicly accessible. **Tables must exist before the backend app starts:** the app runs `seed_default_subcategories()` on startup, which requires the `subcategories` table. So run the table-creation script first (see below), then start or restart the backend.
+RDS is created empty and is not publicly accessible. **Tables must exist before the backend starts** — the app runs `seed_default_subcategories()` on startup and needs the `subcategories` table. Run the table-creation script first, then start/restart the backend.
 
-From your machine (repo root or `infra/terraform`), SSH into the backend instance. Use the same key pair as `ec2_key_name` in `terraform.tfvars`; fix key permissions if SSH complains:
+### SSH into the backend
+
+From repo root or `infra/terraform` (same key as `ec2_key_name`):
 
 ```bash
 chmod 600 ~/.ssh/dalla-deploy.pem
@@ -79,7 +138,9 @@ BACKEND_IP=$(terraform output -raw backend_public_ip)
 ssh -i ~/.ssh/dalla-deploy.pem ubuntu@$BACKEND_IP
 ```
 
-**If the backend container is already running**, create tables inside it:
+### Case A: Backend container already running
+
+Create tables inside it:
 
 ```bash
 sudo docker exec backend python -m scripts.create_tables
@@ -87,7 +148,9 @@ sudo docker exec backend python -m scripts.create_tables
 
 You should see `Tables created.`
 
-**If no backend container is running** (e.g. user_data failed because the image wasn’t in ECR yet), create tables first with a **one-off** container, then start the backend. The instance role has ECR read access (Terraform attaches `AmazonEC2ContainerRegistryReadOnly`). From the EC2 instance:
+### Case B: No backend container running
+
+(e.g. user_data failed because the image wasn’t in ECR yet.) Create tables with a one-off container, then start the backend. Instance role has ECR read (Terraform attaches `AmazonEC2ContainerRegistryReadOnly`). On the EC2 instance:
 
 ```bash
 aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
@@ -98,13 +161,13 @@ COGNITO_REGION=$(aws ssm get-parameter --name "/dalla/prod/COGNITO_REGION" --wit
 COGNITO_USER_POOL_ID=$(aws ssm get-parameter --name "/dalla/prod/COGNITO_USER_POOL_ID" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
 COGNITO_APP_CLIENT_ID=$(aws ssm get-parameter --name "/dalla/prod/COGNITO_APP_CLIENT_ID" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
 
-# 1. Create tables first (one-off container). Required before starting the app (app seeds subcategories on startup).
+# 1. Create tables (one-off). Required before starting the app.
 sudo docker run --rm \
   -e DATABASE_URL="$DATABASE_URL" \
   <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/dalla-backend:latest \
   python -m scripts.create_tables
 
-# 2. Start the backend container (remove existing one if it exited)
+# 2. Start the backend container
 sudo docker rm -f backend 2>/dev/null || true
 sudo docker run -d \
   --name backend \
@@ -113,61 +176,33 @@ sudo docker run -d \
   -e COGNITO_REGION="$COGNITO_REGION" \
   -e COGNITO_USER_POOL_ID="$COGNITO_USER_POOL_ID" \
   -e COGNITO_APP_CLIENT_ID="$COGNITO_APP_CLIENT_ID" \
-  411960113601.dkr.ecr.us-east-1.amazonaws.com/dalla-backend:latest
-```
-Replace `<ACCOUNT_ID>` with your AWS account ID. (using this command `aws sts get-caller-identity --query Account --output text`)
-
-**If the backend container exits on startup** (e.g. `relation "subcategories" does not exist` in `sudo docker logs backend`), tables were missing. Run the one-off `create_tables` command above (step 1), then `sudo docker rm -f backend` and start the container again (step 2).
-
-## 5. Frontend build and deploy
-
-Terraform does **not** upload the frontend. You build and sync:
-
-1. Use the **Terraform-created** Cognito pool and client for the build. Your local `.env` may point to a different pool (e.g. dev); the deployed app must use the same pool as the backend (from Terraform). Set:
-   - `VITE_API_URL` from `terraform output api_url`
-   - `VITE_COGNITO_USER_POOL_ID` from `terraform output user_pool_id`
-   - `VITE_COGNITO_APP_CLIENT_ID` from `terraform output client_id`
-   - `VITE_COGNITO_REGION` (e.g. `us-east-1`)
-2. Build and sync:
-
-```bash
-cd frontend
-TF_DIR=../infra/terraform
-export VITE_API_URL=$(cd $TF_DIR && terraform output -raw api_url)
-export VITE_COGNITO_USER_POOL_ID=$(cd $TF_DIR && terraform output -raw user_pool_id)
-export VITE_COGNITO_APP_CLIENT_ID=$(cd $TF_DIR && terraform output -raw client_id)
-export VITE_COGNITO_REGION=us-east-1
-npm run build
-AWS_PROFILE=dalla-project-owner aws s3 sync dist/ s3://$(cd $TF_DIR && terraform output -raw frontend_bucket_name) --delete
+  <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/dalla-backend:latest
 ```
 
-Invalidate CloudFront cache so changes are visible. Get the distribution ID (for the frontend origin), then create the invalidation:
+Replace `<ACCOUNT_ID>` with your account ID (`aws sts get-caller-identity --query Account --output text`).
 
-```bash
-# Get the CloudFront distribution ID for the frontend (replace placeholder if needed)
-DIST_ID=$(AWS_PROFILE=dalla-project-owner aws cloudfront list-distributions --query "DistributionList.Items[?contains(Origins.Items[0].DomainName, 'dalla-frontend')].Id" --output text)
-AWS_PROFILE=dalla-project-owner aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
-```
+**If the backend container exits on startup** (e.g. `relation "subcategories" does not exist` in `sudo docker logs backend`): run the one-off `create_tables` (step 1), then remove and restart the container (step 2).
 
-Alternatively, get the ID from AWS Console → CloudFront and pass it directly: `--distribution-id E2TLANCEPG0UPC` (use your actual ID).
+**First deploy:** If the database is new, run `create_tables` once (Case A or B above) before or right after the first pipeline run; otherwise the backend container may exit until tables exist.
 
-## 6. Smoke test
+---
+
+## 5. Smoke test
 
 - **Backend:** `terraform output api_url` → e.g. `GET /health`.
-- **Frontend:** Open the app and sign in with Cognito. Use the **HTTP** URL so the browser allows calls to the HTTP backend (mixed-content workaround): change `https` to `http` in the CloudFront URL, e.g. `http://d3156omzi2icat.cloudfront.net` (or `terraform output cloudfront_url` then replace `https` with `http`). If you use the HTTPS URL, Wallets/API will show "Load failed" (see `notes/Feb 20.md`).
+- **Frontend:** Open the app and sign in with Cognito. Use the **HTTP** URL so the browser allows calls to the HTTP backend (mixed-content): change `https` to `http` in the CloudFront URL (e.g. `http://d3156omzi2icat.cloudfront.net`). If you use HTTPS, Wallets/API may show "Load failed" (see `notes/Feb 20.md`).
 
 ---
 
 ## Caveats
 
-- **Build for EC2 architecture:** EC2 is x86_64 (linux/amd64). If you build the backend image on an Apple Silicon (arm64) Mac without `--platform linux/amd64`, the image will have no amd64 manifest and EC2 will fail with "no matching manifest for linux/amd64". Always use `docker build --platform linux/amd64` when building for AWS.
-- EC2 user_data runs only once at first boot to set up Docker, fetch SSM params, and start the backend container. If any step fails (e.g. image not yet in ECR, ECR pull or SSM fetch fails), no container is created. Check `sudo cat /var/log/cloud-init-output.log` on EC2 to debug. The backend instance role has ECR read (`AmazonEC2ContainerRegistryReadOnly`) so the instance can pull the image once it is in ECR.
-- Always push the backend image to ECR **before** (or right after) creating the EC2 instance. If you push later, user_data may have already failed, so you need to start the container manually (see step 4, "If no backend container is running") or replace the instance.
-- **Mixed content:** The backend is HTTP; the frontend is on CloudFront. CloudFront is set to `viewer_protocol_policy = "allow-all"` so you can open the app via **http://** (CloudFront domain) and avoid browser blocking of HTTP API calls. Use the HTTP frontend URL when testing (see step 6).
-- After `terraform destroy` + `terraform apply`, ECR is empty. Push the backend image again (with `--platform linux/amd64`), then either:
-  - SSH into EC2, manually run the ECR login, `docker run` (with SSM env vars), and `create_tables` (see step 4), or
-  - Replace the instance (`terraform taint aws_instance.backend` + `terraform apply`) after pushing the image, so user_data runs again and succeeds.
+- **EC2 architecture:** EC2 is x86_64. On Apple Silicon (arm64) always use `docker build --platform linux/amd64`; otherwise EC2 fails with "no matching manifest for linux/amd64".
+- **user_data:** Runs only once at first boot (Docker, SSM params, backend container). If a step fails (image not in ECR, ECR pull or SSM fail), no container is created. Check `sudo cat /var/log/cloud-init-output.log` on EC2.
+- **Image before instance:** Push the backend image to ECR before (or right after) creating the EC2 instance. If you push later, user_data may have already failed; start the container manually (step 4, Case B) or replace the instance.
+- **Mixed content:** Backend is HTTP, frontend on CloudFront. CloudFront is `viewer_protocol_policy = "allow-all"` so you can open the app via **http://** (CloudFront domain) and avoid blocked HTTP API calls. Use the HTTP frontend URL when testing (step 6).
+- **After destroy + apply:** ECR is empty. Either run the pipeline (it will build and push the image, then deploy) or push the backend image manually (`--platform linux/amd64`), then SSH and run ECR login + `docker run` + `create_tables` (step 4), or replace the instance (`terraform taint aws_instance.backend` + `terraform apply`) so user_data runs again.
+- **RDS master password:** RDS disallows `/`, `@`, `"`, and space in the master password. The Terraform `random_password` for RDS uses `override_special` so only allowed specials (e.g. `!#$%&*()-_=+[]{}<>:?`) are used. If you see `InvalidParameterValue` for `MasterUserPassword`, ensure `rds.tf` has that override (see `notes/Feb 20.md`).
 
 ---
 
-**Summary:** Fill `terraform.tfvars`, run `terraform apply`, build and push the backend image to the Terraform-created ECR, create DB tables, then build the frontend with the correct API URL and sync to the Terraform-created S3 bucket.
+**Summary:** Fill `terraform.tfvars` → `terraform apply` → add CodeCommit as remote and `git push codecommit main` → pipeline builds backend, deploys to EC2, builds frontend and deploys to S3/CloudFront. Create DB tables once if the database is new (step 4).
