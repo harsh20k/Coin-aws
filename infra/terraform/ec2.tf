@@ -125,11 +125,15 @@ resource "aws_instance" "backend" {
               systemctl start docker
 
               REGION="${var.aws_region}"
+              IMAGE_URI="${var.backend_image_uri}"
+              REGISTRY="$${IMAGE_URI%/*}"
 
               DATABASE_URL=$(aws ssm get-parameter --name "${var.ssm_database_url_parameter_name}" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
               COGNITO_REGION=$(aws ssm get-parameter --name "${var.ssm_cognito_region_parameter_name}" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
               COGNITO_USER_POOL_ID=$(aws ssm get-parameter --name "${var.ssm_cognito_user_pool_id_parameter_name}" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
               COGNITO_APP_CLIENT_ID=$(aws ssm get-parameter --name "${var.ssm_cognito_app_client_id_parameter_name}" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
+
+              aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
 
               docker run -d \
                 --name backend \
@@ -138,7 +142,7 @@ resource "aws_instance" "backend" {
                 -e COGNITO_REGION="$COGNITO_REGION" \
                 -e COGNITO_USER_POOL_ID="$COGNITO_USER_POOL_ID" \
                 -e COGNITO_APP_CLIENT_ID="$COGNITO_APP_CLIENT_ID" \
-                ${var.backend_image_uri}
+                "$IMAGE_URI"
               EOF
 
   tags = {
