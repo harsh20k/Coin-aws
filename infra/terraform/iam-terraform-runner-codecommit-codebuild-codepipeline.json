@@ -1,0 +1,54 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CodeCommit",
+      "Effect": "Allow",
+      "Action": [
+        "codecommit:CreateRepository",
+        "codecommit:GetRepository",
+        "codecommit:DeleteRepository",
+        "codecommit:ListRepositories",
+        "codecommit:TagResource",
+        "codecommit:UntagResource",
+        "codecommit:ListTagsForResource",
+        "codecommit:GitPush",
+        "codecommit:GitPull",
+        "codecommit:GetBranch",
+        "codecommit:GetCommit",
+        "codecommit:ListBranches"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CodeBuild",
+      "Effect": "Allow",
+      "Action": [
+        "codebuild:CreateProject",
+        "codebuild:DeleteProject",
+        "codebuild:BatchGetProjects",
+        "codebuild:UpdateProject",
+        "codebuild:BatchGetBuilds",
+        "codebuild:StartBuild",
+        "codebuild:StopBuild"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CodePipeline",
+      "Effect": "Allow",
+      "Action": [
+        "codepipeline:CreatePipeline",
+        "codepipeline:GetPipeline",
+        "codepipeline:UpdatePipeline",
+        "codepipeline:DeletePipeline",
+        "codepipeline:ListPipelines",
+        "codepipeline:GetPipelineState",
+        "codepipeline:ListTagsForResource",
+        "codepipeline:TagResource",
+        "codepipeline:UntagResource"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
