@@ -53,3 +53,7 @@
 3. **Deploy Backend stage: YAML_FILE_ERROR at line 22**
    - **Cause:** In `buildspec-backend-deploy.yml`, a `commands` list item contained unquoted `{'commands': [sys.stdin.read()]}`. The YAML parser (CodeBuild and some local parsers) treated `{...}` as a flow mapping and expected a key, failing at the next line.
    - **Fix:** Put the Python one-liner in a literal block (`- |` with indented content) so the braces are never parsed as YAML. Also increased indentation of other literal-block contents for consistent parsing. No `terraform apply` needed—fix is in repo; use a **new** pipeline run (not “re-run” of an old execution) so the stage gets the updated buildspec from Source.
+
+4. **Deploy Backend: AccessDeniedException on ssm:SendCommand**
+   - **Cause:** CodeBuild role had `ssm:SendCommand` only on the EC2 instance resource. AWS requires the same action on the **SSM document** resource (`arn:aws:ssm:region::document/AWS-RunShellScript`) when using Run Command.
+   - **Fix:** In `codepipeline.tf`, in the CodeBuild IAM policy's SSMSendCommand statement, add the document ARN to `resources`: `arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript`. Then run `terraform apply`; re-run the pipeline after apply.

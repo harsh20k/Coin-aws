@@ -185,7 +185,10 @@ data "aws_iam_policy_document" "codebuild_permissions" {
     actions = [
       "ssm:SendCommand"
     ]
-    resources = ["arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.backend.id}"]
+    resources = [
+      "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.backend.id}",
+      "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"
+    ]
   }
   statement {
     sid    = "SSMGetParameter"
@@ -286,7 +289,7 @@ resource "aws_codebuild_project" "backend_build" {
 resource "aws_codebuild_project" "backend_deploy" {
   name          = "${local.project_name}-backend-deploy"
   service_role  = aws_iam_role.codebuild.arn
-  build_timeout = 5
+  build_timeout = 15
 
   artifacts {
     type = "CODEPIPELINE"
