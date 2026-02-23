@@ -7,16 +7,23 @@ phases:
       - ECR_REGISTRY="${ECR_REPOSITORY_URI%/*}"
       - |
           SCRIPT='set -e
+          echo "[$(date -Iseconds)] Starting deploy script"
           REGION="__REGION__"
+          echo "[$(date -Iseconds)] Fetching SSM parameters..."
           DATABASE_URL=$(aws ssm get-parameter --name "__SSM_DATABASE_URL__" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
           COGNITO_REGION=$(aws ssm get-parameter --name "__SSM_COGNITO_REGION__" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
           COGNITO_USER_POOL_ID=$(aws ssm get-parameter --name "__SSM_COGNITO_USER_POOL_ID__" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
           COGNITO_APP_CLIENT_ID=$(aws ssm get-parameter --name "__SSM_COGNITO_APP_CLIENT_ID__" --with-decryption --region "$REGION" --query "Parameter.Value" --output text)
+          echo "[$(date -Iseconds)] ECR login..."
           aws ecr get-login-password --region "$REGION" | sudo docker login --username AWS --password-stdin __ECR_REGISTRY__
+          echo "[$(date -Iseconds)] Pulling image..."
           sudo docker pull __ECR_URI__
+          echo "[$(date -Iseconds)] Stopping/removing existing container..."
           sudo docker stop backend 2>/dev/null || true
           sudo docker rm backend 2>/dev/null || true
-          sudo docker run -d --name backend -p __PORT__:__PORT__ -e DATABASE_URL="$DATABASE_URL" -e COGNITO_REGION="$COGNITO_REGION" -e COGNITO_USER_POOL_ID="$COGNITO_USER_POOL_ID" -e COGNITO_APP_CLIENT_ID="$COGNITO_APP_CLIENT_ID" __ECR_URI__'
+          echo "[$(date -Iseconds)] Starting new container..."
+          sudo docker run -d --name backend -p __PORT__:__PORT__ -e DATABASE_URL="$DATABASE_URL" -e COGNITO_REGION="$COGNITO_REGION" -e COGNITO_USER_POOL_ID="$COGNITO_USER_POOL_ID" -e COGNITO_APP_CLIENT_ID="$COGNITO_APP_CLIENT_ID" __ECR_URI__
+          echo "[$(date -Iseconds)] Deploy script finished"'
       - |
           SCRIPT=$(echo "$SCRIPT" | sed "s|__REGION__|$AWS_REGION|g" | sed "s|__SSM_DATABASE_URL__|$SSM_DATABASE_URL|g" | sed "s|__SSM_COGNITO_REGION__|$SSM_COGNITO_REGION|g" | sed "s|__SSM_COGNITO_USER_POOL_ID__|$SSM_COGNITO_USER_POOL_ID|g" | sed "s|__SSM_COGNITO_APP_CLIENT_ID__|$SSM_COGNITO_APP_CLIENT_ID|g" | sed "s|__ECR_REGISTRY__|$ECR_REGISTRY|g" | sed "s|__ECR_URI__|$ECR_REPOSITORY_URI|g" | sed "s|__PORT__|$BACKEND_PORT|g")
       - echo "Sending SSM Run Command to instance $BACKEND_INSTANCE_ID..."
@@ -36,7 +43,12 @@ phases:
           for i in $(seq 1 90); do
             STATUS=$(aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION --query "Status" --output text 2>/dev/null || echo "Pending")
             echo "Status: $STATUS"
-            if [ "$STATUS" = "Success" ]; then exit 0; fi
+            if [ "$STATUS" = "Success" ]; then
+              echo "Command completed. Output from instance:"
+              aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION --query "StandardOutputContent" --output text
+              aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION --query "StandardErrorContent" --output text
+              exit 0
+            fi
             if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
               aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION
               exit 1
