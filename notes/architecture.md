@@ -90,10 +90,10 @@ flowchart TB
 | **CodePipeline**        | Orchestrates Source → BuildBackend → DeployBackend → BuildFrontend.                                                                     |
 | **CodeBuild**           | Builds backend image (push ECR), runs SSM deploy on EC2, builds frontend and deploys to S3 + CloudFront.                                |
 | **ECR**                 | Stores backend Docker image; EC2 pulls `:latest` on deploy.                                                                             |
-| **EC2**                 | Single instance; runs backend container (Docker), gets config from SSM.                                                                 |
+| **EC2**                 | Single instance with Docker and **SSM Agent** installed; runs backend container deployed by pipeline, gets config from SSM.             |
 | **RDS**                 | PostgreSQL; backend connects via private VPC; tables created once via `create_tables`.                                                  |
 | **Cognito**             | User pool + app client; frontend and backend use for sign-up/sign-in and token validation.                                              |
 | **S3**                  | Holds static frontend build; access only via CloudFront (OAI).                                                                          |
 | **CloudFront**          | Serves frontend; optional `allow-all` protocol so app can use HTTP backend.                                                             |
-| **SSM Parameter Store** | Stores DATABASE_URL, Cognito IDs, API URL; read by backend (EC2/user_data and deploy script) and by frontend CodeBuild at build time.   |
-| **SSM Run Command**     | Used by the pipeline (CodeBuild) to run the deploy script on the backend EC2 instance (pull image, restart container); no SSH required. |
+| **SSM Parameter Store** | Stores DATABASE_URL, Cognito IDs, API URL; read by backend (deploy script) and by frontend CodeBuild at build time.                     |
+| **SSM Run Command**     | Used by pipeline (CodeBuild) to deploy backend: runs script on EC2 via **SSM Agent** (pull image, restart container); no SSH required.  |
