@@ -37,3 +37,19 @@
 **Variables**
 
 - `codecommit_branch` (codepipeline.tf, default `main`) — branch that triggers the pipeline.
+
+---
+
+## Issues encountered (Feb 22–23)
+
+1. **CodeCommit push asking for username/password**
+   - **Cause:** Remote was set to HTTPS URL (`codecommit_repository_https_url`). HTTPS does not use SSH keys.
+   - **Fix:** Use SSH URL: `git remote set-url aws $(cd infra/terraform && terraform output -raw codecommit_repository_url)`. Ensure `~/.ssh/config` has a Host for `git-codecommit.<region>.amazonaws.com` with `User` = IAM SSH key ID and `IdentityFile` = path to private key.
+
+2. **Access denied: codecommit:GitPush**
+   - **Cause:** IAM user (e.g. `dalla-project-owner`) had CodeCommit permissions for Terraform (CreateRepository, GetRepository, etc.) but not for git operations.
+   - **Fix:** Added to inline policy (source: `infra/terraform/iam-terraform-runner-codecommit-codebuild-codepipeline.json`): `codecommit:GitPush`, `codecommit:GitPull`, `codecommit:GetBranch`, `codecommit:GetCommit`, `codecommit:ListBranches`. Apply by updating the IAM user’s inline policy in the console with the JSON from that file.
+
+3. **Deploy Backend stage: YAML_FILE_ERROR at line 22**
+   - **Cause:** In `buildspec-backend-deploy.yml`, a `commands` list item contained unquoted `{'commands': [sys.stdin.read()]}`. The YAML parser (CodeBuild and some local parsers) treated `{...}` as a flow mapping and expected a key, failing at the next line.
+   - **Fix:** Put the Python one-liner in a literal block (`- |` with indented content) so the braces are never parsed as YAML. Also increased indentation of other literal-block contents for consistent parsing. No `terraform apply` needed—fix is in repo; use a **new** pipeline run (not “re-run” of an old execution) so the stage gets the updated buildspec from Source.

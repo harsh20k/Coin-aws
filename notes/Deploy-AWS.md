@@ -40,7 +40,7 @@ The IAM user/role used for Terraform (e.g. `dalla-project-owner`) must be able t
 | CodePipeline | CreatePipeline, GetPipeline, etc.                                                                              |
 
 
-**Easiest:** attach these managed policies to the Terraform user:
+**Easiest:** attach these managed policies to the Terraform user (e.g. `dalla-project-owner`):
 
 - AmazonEC2FullAccess  
 - IAMFullAccess  
@@ -51,9 +51,11 @@ The IAM user/role used for Terraform (e.g. `dalla-project-owner`) must be able t
 - CloudWatchLogsFullAccess  
 - AmazonRDSFullAccess  
 - AmazonSSMFullAccess  
-- AWSCodeCommitFullAccess  
-- AWSCodeBuildAdminAccess  
-- AWSCodePipelineFullAccess
+- **AWSCodeCommitFullAccess**  
+- **AWSCodeBuildAdminAccess**  
+- **AWSCodePipelineFullAccess**
+
+**If you see `AccessDeniedException` for `codecommit:CreateRepository` or `codebuild:CreateProject`:** the Terraform user needs CodeCommit/CodeBuild/CodePipeline. Either attach the three managed policies (AWSCodeCommitFullAccess, AWSCodeBuildAdminAccess, AWSCodePipelineFullAccess), or—**if you get "The selected policies exceed this account's quota"** (AWS limits managed policies per user)—add a single **inline policy** instead: IAM → Users → your user → Add permissions → Create inline policy → JSON tab → paste the contents of `infra/terraform/iam-terraform-runner-codecommit-codebuild-codepipeline.json`, name it (e.g. `DallaCodeCommitCodeBuildCodePipeline`), then create and retry `terraform apply`.
 
 **If you see `UnauthorizedOperation` for `ec2:DescribeImages` or `ec2:DescribeAvailabilityZones`:** attach **AmazonEC2FullAccess** (or a custom policy with at least those two actions on `*`) to the Terraform user.
 
