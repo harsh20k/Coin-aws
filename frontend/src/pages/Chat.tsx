@@ -1,14 +1,37 @@
 import { useState } from 'react'
 import { api } from '../api/client'
-import type { ChatResponse } from '../api/types'
+import type { ChatResponse, DemoLoadResponse, DemoProfile } from '../api/types'
 import './Page.css'
 import './Chat.css'
+
+const DEMO_PROFILES: { value: DemoProfile; label: string; description: string }[] = [
+  {
+    value: 'frequent_shopper',
+    label: 'Frequent Shopper',
+    description: 'Heavy on shopping & dining, regular salary income, modest savings.',
+  },
+  {
+    value: 'savvy_investor',
+    label: 'Savvy Investor',
+    description: 'High income, aggressive investing in stocks & savings, minimal expenses.',
+  },
+  {
+    value: 'budget_conscious',
+    label: 'Budget-Conscious Saver',
+    description: 'Modest income, tightly controlled spending, consistent small investments.',
+  },
+]
 
 export function Chat() {
   const [message, setMessage] = useState('')
   const [reply, setReply] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [demoProfile, setDemoProfile] = useState<DemoProfile>('frequent_shopper')
+  const [demoLoading, setDemoLoading] = useState(false)
+  const [demoResult, setDemoResult] = useState<DemoLoadResponse | null>(null)
+  const [demoError, setDemoError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -27,10 +50,67 @@ export function Chat() {
     }
   }
 
+  async function handleLoadDemo(e: React.FormEvent) {
+    e.preventDefault()
+    setDemoLoading(true)
+    setDemoError(null)
+    setDemoResult(null)
+    try {
+      const data = await api.post<DemoLoadResponse>('/demo', { profile: demoProfile })
+      setDemoResult(data)
+    } catch (e) {
+      setDemoError(e instanceof Error ? e.message : 'Failed to load demo data')
+    } finally {
+      setDemoLoading(false)
+    }
+  }
+
+  const selectedProfile = DEMO_PROFILES.find((p) => p.value === demoProfile)
+
   return (
     <div className="page">
       <h2>AI Chat</h2>
       <p className="chat-intro">Ask questions about your budgets, goals, and transactions.</p>
+
+      <div className="demo-panel">
+        <div className="demo-panel-header">
+          <span className="demo-badge">Demo</span>
+          <h3>Load Sample Data</h3>
+        </div>
+        <p className="demo-panel-desc">
+          Populate your account with realistic transactions to test the AI assistant.
+        </p>
+        <form onSubmit={handleLoadDemo} className="demo-form">
+          <select
+            value={demoProfile}
+            onChange={(e) => {
+              setDemoProfile(e.target.value as DemoProfile)
+              setDemoResult(null)
+              setDemoError(null)
+            }}
+            disabled={demoLoading}
+          >
+            {DEMO_PROFILES.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          <button type="submit" disabled={demoLoading} className="demo-load-btn">
+            {demoLoading ? 'Loading…' : 'Load Profile'}
+          </button>
+        </form>
+        {selectedProfile && (
+          <p className="demo-profile-desc">{selectedProfile.description}</p>
+        )}
+        {demoError && <p className="demo-error">{demoError}</p>}
+        {demoResult && (
+          <p className="demo-success">
+            ✓ Loaded <strong>{demoResult.label}</strong> — {demoResult.transactions_loaded} transactions added to "Demo Wallet".
+          </p>
+        )}
+      </div>
+
       {error && <p className="page-error">{error}</p>}
       <form onSubmit={handleSubmit} className="chat-form">
         <input

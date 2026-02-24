@@ -115,3 +115,16 @@ export interface GoalUpdate {
 export interface ChatResponse {
   reply: string
 }
+
+export type DemoProfile = 'frequent_shopper' | 'savvy_investor' | 'budget_conscious'
+
+export interface DemoLoadRequest {
+  profile: DemoProfile
+}
+
+export interface DemoLoadResponse {
+  profile: string
+  label: string
+  transactions_loaded: number
+  wallet_id: string
+}

@@ -171,3 +171,15 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+
+
+# ----- Demo -----
+class DemoLoadRequest(BaseModel):
+    profile: str = Field(..., description="One of: frequent_shopper, savvy_investor, budget_conscious")
+
+
+class DemoLoadResponse(BaseModel):
+    profile: str
+    label: str
+    transactions_loaded: int
+    wallet_id: UUID

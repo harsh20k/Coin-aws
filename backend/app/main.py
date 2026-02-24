@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory
 from app.models import Subcategory, TransactionTypeEnum
-from app.routers import budgets, chat, goals, subcategories, transactions, users, wallets
+from app.routers import budgets, chat, demo, goals, subcategories, transactions, users, wallets
 
 
 DEFAULT_SUBCATEGORIES = [
@@ -71,6 +71,7 @@ app.include_router(transactions.router)
 app.include_router(budgets.router)
 app.include_router(goals.router)
 app.include_router(chat.router)
+app.include_router(demo.router)
 
 
 @app.get("/health")
