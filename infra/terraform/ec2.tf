@@ -104,7 +104,7 @@ data "aws_iam_policy_document" "backend_bedrock_access" {
       "bedrock:InvokeModel"
     ]
     resources = [
-      "arn:aws:bedrock:${var.aws_region}::foundation-model/*",
+      "arn:aws:bedrock:*::foundation-model/*",
       "arn:aws:bedrock:*:*:inference-profile/*"
     ]
   }
