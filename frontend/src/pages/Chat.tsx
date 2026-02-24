@@ -44,6 +44,9 @@ export function Chat() {
       setReply(data.reply)
       setMessage('')
     } catch (e) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/ca6e21a8-b6aa-467e-976e-d9f77506770e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ef78fc'},body:JSON.stringify({sessionId:'ef78fc',location:'Chat.tsx:handleSubmit:catch',message:'Chat request exception',data:{error_message:e instanceof Error ? e.message : String(e),error_type:typeof e,error_name:e instanceof Error ? e.name : 'unknown'},timestamp:Date.now(),hypothesisId:'H-I'})}).catch(()=>{});
+      // #endregion
       setError(e instanceof Error ? e.message : 'Failed to send')
     } finally {
       setLoading(false)

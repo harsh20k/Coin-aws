@@ -171,13 +171,22 @@ async def _invoke_bedrock(prompt: str) -> str:
         
     except ClientError as e:
         error_code = e.response['Error']['Code']
-        
+        # region:debug-ef78fc
+        import time, json as _json
+        _log = {"sessionId": "ef78fc", "hypothesisId": "H-A/B/C/D/E", "location": "chat.py:_invoke_bedrock", "message": "Bedrock ClientError", "data": {"error_code": error_code, "error_message": str(e), "full_response": str(e.response)}, "timestamp": int(time.time() * 1000)}
+        open("/Users/harsh/Artifacts/Dalla/.cursor/debug-ef78fc.log", "a").write(_json.dumps(_log) + "\n")
+        # endregion
         if error_code == 'AccessDeniedException':
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="AI service is not configured. Please contact support."
             )
         elif error_code == 'ThrottlingException':
+            # region:debug-ef78fc
+            import time as _time3, json as _json3
+            _log3 = {"sessionId": "ef78fc", "hypothesisId": "H-G", "location": "chat.py:_invoke_bedrock:throttle", "message": "Bedrock throttling detected", "data": {"error_code": error_code, "error_message": str(e)}, "timestamp": int(_time3.time() * 1000)}
+            open("/Users/harsh/Artifacts/Dalla/.cursor/debug-ef78fc.log", "a").write(_json3.dumps(_log3) + "\n")
+            # endregion
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Too many requests. Please try again in a moment."
@@ -208,4 +217,4 @@ async def chat(
     # Call Bedrock
     ai_reply = await _invoke_bedrock(prompt)
     
-    return ChatResponse(reply=ai_reply)
+    return ChatResponse(reply=ai_reply, prompt=prompt)

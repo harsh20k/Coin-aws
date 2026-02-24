@@ -171,6 +171,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+    prompt: str | None = None
 
 
 # ----- Demo -----
