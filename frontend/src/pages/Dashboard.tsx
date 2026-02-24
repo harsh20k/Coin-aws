@@ -177,10 +177,10 @@ export function Dashboard() {
       {/* Center: chat */}
       <div className="db-center">
         <section className="db-panel db-chat-panel">
-          <h3 className="db-panel-title">🪙 coinBaby</h3>
+          <h3 className="db-panel-title">👶 Penny</h3>
           <div className="db-chat-messages">
             {chatHistory.length === 0 && (
-              <p className="db-chat-hint">Ask coinBaby about your finances!</p>
+              <p className="db-chat-hint">Ask Penny about your finances!</p>
             )}
             {chatHistory.map((msg, i) => (
               <div key={i} className={`db-chat-msg db-chat-msg-${msg.role}`}>
@@ -205,7 +205,7 @@ export function Dashboard() {
             <input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask coinBaby…"
+              placeholder="Ask Penny…"
               disabled={chatLoading}
             />
             <button type="submit" disabled={chatLoading || !message.trim()}>

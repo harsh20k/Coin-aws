@@ -6,7 +6,7 @@ export function Layout() {
   return (
     <div className="layout">
       <header className="layout-header">
-        <h1 className="layout-title">theCoin</h1>
+        <h1 className="layout-title">coinBaby</h1>
         <Nav />
       </header>
       <main className="layout-main">
