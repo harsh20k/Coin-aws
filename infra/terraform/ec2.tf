@@ -104,7 +104,7 @@ data "aws_iam_policy_document" "backend_bedrock_access" {
       "bedrock:InvokeModel"
     ]
     resources = [
-      "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
+      "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
     ]
   }
 }
@@ -138,6 +138,12 @@ resource "aws_instance" "backend" {
   vpc_security_group_ids = [aws_security_group.backend.id]
   key_name               = var.ec2_key_name
   iam_instance_profile   = aws_iam_instance_profile.backend.name
+
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+    encrypted   = true
+  }
 
   user_data = <<-EOF
               #!/bin/bash
