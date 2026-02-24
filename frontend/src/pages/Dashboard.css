@@ -1,37 +1,292 @@
-.dashboard h2 {
-  margin-top: 0;
+.dashboard {
+  display: grid;
+  grid-template-columns: 220px 1fr 240px;
+  gap: 1rem;
+  height: calc(100vh - 90px);
+  overflow: hidden;
 }
 
-.dashboard-intro {
-  color: #666;
-  margin-bottom: 1.5rem;
+.db-left,
+.db-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  min-height: 0;
 }
 
-.dashboard-cards {
+.db-center {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Panel */
+.db-panel {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 0.875rem;
+}
+
+.db-panel-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.db-empty {
+  color: #9ca3af;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+/* Wallets */
+.db-wallet-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
-.dashboard-card {
-  display: block;
-  padding: 1rem;
-  background: #f5f5f5;
+.db-wallet-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.db-wallet-name {
+  font-size: 0.82rem;
+  color: #374151;
+}
+
+.db-wallet-bal {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.db-wallet-bal.pos { color: #16a34a; }
+.db-wallet-bal.neg { color: #dc2626; }
+
+/* Progress bars */
+.db-progress-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.db-progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #374151;
+  margin-bottom: 3px;
+}
+
+.db-over { color: #ef4444; }
+
+.db-bar-track {
+  background: #e5e7eb;
+  border-radius: 4px;
+  height: 7px;
+  overflow: hidden;
+}
+
+.db-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.db-bar-fill.goal { background: #3b82f6; }
+.db-bar-fill.budget { background: #10b981; }
+.db-bar-fill.budget.over { background: #ef4444; }
+
+/* Chat panel */
+.db-chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.db-chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  padding-right: 2px;
+}
+
+.db-chat-hint {
+  color: #9ca3af;
+  font-size: 0.82rem;
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.db-chat-msg {
+  display: flex;
+  flex-direction: column;
+}
+
+.db-chat-msg-user { align-items: flex-end; }
+.db-chat-msg-ai   { align-items: flex-start; }
+
+.db-chat-bubble {
+  max-width: 88%;
+  padding: 0.45rem 0.7rem;
+  border-radius: 12px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.db-chat-msg-user .db-chat-bubble {
+  background: #3b82f6;
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+
+.db-chat-msg-ai .db-chat-bubble {
+  background: #e5e7eb;
+  color: #111827;
+  border-bottom-left-radius: 3px;
+}
+
+.db-chat-thinking {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+.db-prompt-details {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  max-width: 88%;
+}
+
+.db-prompt-details summary {
+  cursor: pointer;
+  color: #6b7280;
+  user-select: none;
+}
+
+.db-prompt-details pre {
+  margin: 0.25rem 0 0;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-size: 0.68rem;
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.db-chat-error {
+  color: #ef4444;
+  font-size: 0.8rem;
+  margin: 0 0 0.5rem;
+}
+
+.db-chat-form {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.db-chat-form input {
+  flex: 1;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
-  text-decoration: none;
-  color: #333;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.db-chat-form input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.db-chat-form button {
+  padding: 0.45rem 0.9rem;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
-.dashboard-card:hover {
-  background: #eee;
+.db-chat-form button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-@media (max-width: 768px) {
-  .dashboard-cards {
+/* Transactions */
+.db-txn-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.db-txn-item {
+  display: grid;
+  grid-template-columns: 14px auto 1fr auto;
+  column-gap: 0.3rem;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.db-txn-sign {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.db-txn-item.income  .db-txn-sign,
+.db-txn-item.income  .db-txn-amount { color: #16a34a; }
+
+.db-txn-item.outflow .db-txn-sign,
+.db-txn-item.outflow .db-txn-amount { color: #dc2626; }
+
+.db-txn-amount { font-weight: 600; }
+
+.db-txn-cat {
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-txn-date {
+  color: #9ca3af;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 820px) {
+  .dashboard {
     grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .db-chat-panel {
+    height: 420px;
   }
 }

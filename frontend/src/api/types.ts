@@ -114,6 +114,7 @@ export interface GoalUpdate {
 
 export interface ChatResponse {
   reply: string
+  prompt?: string
 }
 
 export type DemoProfile = 'frequent_shopper' | 'savvy_investor' | 'budget_conscious'

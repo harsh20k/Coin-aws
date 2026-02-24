@@ -97,3 +97,38 @@
 - Ran `terraform apply` to update IAM permissions
 - Chat feature now working with Claude 3.5 Haiku via inference profile
 - ✅ Confirmed working on Feb 24, 2026
+
+---
+
+## coinBaby Persona + Dashboard Redesign (Feb 24)
+
+### coinBaby Prompt (`backend/app/routers/chat.py`)
+- Replaced generic "helpful financial assistant" prompt with **coinBaby** persona
+- coinBaby = playful toddler who loves coins, gives positive reinforcement for saving/investing
+- Empathizes that spending on things you love is also OK
+- Rules: short sentences, 3–5 sentence max, no markdown headers, no asking for info unless critical
+- Used Claude's `system` field for the persona (separate from financial data in `user` turn)
+- Reduced `max_tokens` to 350 to enforce conciseness
+- Backend now returns `[SYSTEM] ... [USER] ...` block as the `prompt` field in response (for debugging/display)
+
+### Dashboard Redesign (`frontend/src/pages/Dashboard.tsx` + `Dashboard.css`)
+Replaced simple nav-card grid with a full **3-column layout**:
+
+**Left sidebar — Wallets, Goals, Budgets**
+- Wallets: name + computed balance (green if positive, red if negative) derived from transactions
+- Goals: progress bars (blue fill), `current / target` computed from matching transactions in period
+- Budgets: progress bars (green fill, turns red if over limit), spend computed from transactions
+
+**Center — coinBaby Chat**
+- Inline chat widget (no need to navigate to `/chat`)
+- Full message history with user bubbles (blue, right-aligned) and AI bubbles (grey, left-aligned)
+- Each AI reply has a collapsible **"Prompt sent to Claude"** section showing the full raw prompt
+
+**Right sidebar — Recent Transactions**
+- Last 10 transactions sorted by date desc
+- Green `+` for income, red `−` for all outflows
+- Shows: sign, amount, subcategory name, date
+
+### Other
+- `frontend/src/api/types.ts` — added `prompt?: string` to `ChatResponse`
+- `frontend/src/components/Layout.css` — bumped `max-width` from `900px` to `1300px` for 3-column layout

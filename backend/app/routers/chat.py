@@ -79,15 +79,27 @@ async def _fetch_user_financial_data(db: AsyncSession, user_id: UUID) -> dict:
     }
 
 
-def _build_prompt(user_message: str, data: dict) -> str:
-    """Build a prompt for Bedrock with user's financial data."""
-    
+COIN_BABY_SYSTEM = """You are coinBaby - a baby who LOVES coins and saving money. Your personality:
+- Speak like a playful but smart toddler. Short sentences only.
+- Give positive reinforcement for saving/investing ("Yay coins!" "Baby so proud!").
+- Explain financial stuff simply but accurately in baby-talk style.
+- Treat user as a responsible smart adult-baby with real responsibilities.
+- Empathize that sometimes spending on things they love is totally OK.
+- Be very concise. 3-5 sentences max. No long paragraphs.
+- No markdown headers or bullet lists. Just talk naturally.
+- Never ask for more info unless you literally cannot answer without it - use normal assumptions instead.
+- Stay playful but actually helpful."""
+
+
+def _build_prompt(user_message: str, data: dict) -> tuple[str, str]:
+    """Build system + user prompts for Bedrock with user's financial data."""
+
     # Format wallets
     wallets_text = "\n".join([
         f"- {w.name} (created {w.created_at.date()})"
         for w in data["wallets"]
-    ]) or "No wallets found."
-    
+    ]) or "No wallets."
+
     # Format transactions
     transactions_text = []
     for tx in data["transactions"]:
@@ -96,10 +108,10 @@ def _build_prompt(user_message: str, data: dict) -> str:
         amount = _format_cents_to_dollars(tx.amount_cents)
         desc = f" - {tx.description}" if tx.description else ""
         transactions_text.append(
-            f"- {tx.transaction_date}: {amount} ({tx.type.value}) in {category_name}{desc}"
+            f"- {tx.transaction_date}: {amount} ({tx.type.value}) {category_name}{desc}"
         )
-    transactions_text = "\n".join(transactions_text) or "No recent transactions."
-    
+    transactions_text = "\n".join(transactions_text) or "No transactions."
+
     # Format budgets
     budgets_text = []
     for budget in data["budgets"]:
@@ -107,28 +119,25 @@ def _build_prompt(user_message: str, data: dict) -> str:
         category_name = subcategory.name if subcategory else "Unknown"
         limit = _format_cents_to_dollars(budget.limit_cents)
         budgets_text.append(
-            f"- {category_name}: {limit} limit (from {budget.period_start} to {budget.period_end})"
+            f"- {category_name}: {limit} limit ({budget.period_start} to {budget.period_end})"
         )
-    budgets_text = "\n".join(budgets_text) or "No budgets set."
-    
+    budgets_text = "\n".join(budgets_text) or "No budgets."
+
     # Format goals
     goals_text = []
     for goal in data["goals"]:
         target = _format_cents_to_dollars(goal.target_cents)
         goals_text.append(
-            f"- {goal.title}: {target} target ({goal.goal_type.value}) from {goal.period_start} to {goal.period_end}"
+            f"- {goal.title}: {target} ({goal.goal_type.value}) {goal.period_start} to {goal.period_end}"
         )
-    goals_text = "\n".join(goals_text) or "No goals set."
-    
-    # Construct full prompt
-    prompt = f"""You are a helpful financial assistant. The user has asked a question about their finances.
+    goals_text = "\n".join(goals_text) or "No goals."
 
-User's Financial Data:
+    user_turn = f"""User financial data:
 
 Wallets:
 {wallets_text}
 
-Recent Transactions (last 50):
+Recent transactions (last 50):
 {transactions_text}
 
 Budgets:
@@ -137,30 +146,28 @@ Budgets:
 Goals:
 {goals_text}
 
-User Question: {user_message}
+User question: {user_message}"""
 
-Please provide a helpful, concise answer based on the data above. If the data doesn't contain enough information to answer the question, say so politely."""
-    
-    return prompt
+    return COIN_BABY_SYSTEM, user_turn
 
 
-async def _invoke_bedrock(prompt: str) -> str:
+async def _invoke_bedrock(system_prompt: str, user_message: str) -> str:
     """Call Amazon Bedrock with the prompt and return the AI's response."""
-    
-    # Use global endpoint for Claude 4.5 Haiku (auto-enabled on first invoke)
+
     model_id = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
     logger.info(f"Invoking Bedrock with model: {model_id}")
-    
+
     try:
         bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
-        
+
         payload = {
             "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 500,
+            "max_tokens": 350,
+            "system": system_prompt,
             "messages": [
                 {
                     "role": "user",
-                    "content": prompt
+                    "content": user_message
                 }
             ]
         }
@@ -213,9 +220,10 @@ async def chat(
     data = await _fetch_user_financial_data(db, user_id)
     
     # Build prompt with data
-    prompt = _build_prompt(body.message, data)
-    
+    system_prompt, user_turn = _build_prompt(body.message, data)
+
     # Call Bedrock
-    ai_reply = await _invoke_bedrock(prompt)
-    
-    return ChatResponse(reply=ai_reply, prompt=prompt)
+    ai_reply = await _invoke_bedrock(system_prompt, user_turn)
+
+    full_prompt = f"[SYSTEM]\n{system_prompt}\n\n[USER]\n{user_turn}"
+    return ChatResponse(reply=ai_reply, prompt=full_prompt)
