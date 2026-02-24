@@ -169,7 +169,91 @@ statement {
 
 After running `terraform apply` to update IAM permissions, retry the pipeline.
 
-### Lessons Learned
-- IAM permissions need to match all AWS API calls in buildspec files, not just the primary action
-- When debugging "stuck" commands, verify permissions for status-checking APIs, not just execution APIs
-- Silent IAM permission failures can cause infinite waits in automation scripts
+### Initial Solution Attempt
+Updated `/infra/terraform/codepipeline.tf` to add missing SSM permission:
+
+```terraform
+statement {
+  sid    = "SSMSendCommand"
+  effect = "Allow"
+  actions = [
+    "ssm:SendCommand",
+    "ssm:GetCommandInvocation"  # Added this permission
+  ]
+  resources = [
+    "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.backend.id}",
+    "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"
+  ]
+}
+```
+
+**Result**: Still failed! Applied `terraform apply` but issue persisted.
+
+---
+
+## Final Root Cause: IAM Resource Constraint Issue
+
+### The Real Problem
+After multiple troubleshooting attempts (SSM agent installation, removing user_data deployment, adding database migrations, adding IAM permissions), the issue **still persisted**. 
+
+### Systematic Debug Approach
+Added instrumentation to `buildspec-backend-deploy.yml` to capture runtime evidence:
+- Tested if `get-command-invocation` API works
+- Captured full error messages (which were being silently suppressed by `2>/dev/null`)
+- Monitored SSM agent health status
+
+### Debug Output Revealed the Truth
+```bash
+[DEBUG-H1] Raw API response: 
+An error occurred (AccessDeniedException) when calling the GetCommandInvocation operation: 
+User: arn:aws:sts::411960113601:assumed-role/dalla-codebuild-role/... 
+is not authorized to perform: ssm:GetCommandInvocation on resource: arn:aws:ssm:us-east-1:411960113601:* 
+because no identity-based policy allows the ssm:GetCommandInvocation action
+```
+
+### Actual Root Cause
+**Incorrect IAM Resource Constraint**: The `ssm:GetCommandInvocation` permission was added, but it was scoped to the wrong resources:
+- **Allowed resources**: `arn:aws:ec2:...:instance/...` and `arn:aws:ssm:...:document/...`  
+- **Required resources**: `*` (command invocations use dynamic ARNs that can't be predicted)
+
+The `get-command-invocation` API tries to access `arn:aws:ssm:us-east-1:411960113601:*`, which didn't match the restrictive resource list. The `2>/dev/null` in the buildspec was silently hiding this error.
+
+### The Fix That Actually Worked
+Split SSM permissions into two separate statements in `/infra/terraform/codepipeline.tf`:
+
+```terraform
+# Scoped permission for sending commands
+statement {
+  sid    = "SSMSendCommand"
+  effect = "Allow"
+  actions = ["ssm:SendCommand"]
+  resources = [
+    "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.backend.id}",
+    "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"
+  ]
+}
+
+# Wildcard permission for checking command status
+statement {
+  sid    = "SSMGetCommandInvocation"
+  effect = "Allow"
+  actions = ["ssm:GetCommandInvocation"]
+  resources = ["*"]
+}
+```
+
+### Verification
+After `terraform apply`:
+- **Iteration 1**: Status changed from "Pending" to "InProgress" ✓
+- **Iteration 2**: Status "Success" ✓  
+- **Total deployment time**: ~15 seconds (was timing out at 15 minutes before)
+- Backend container successfully deployed and running
+
+### Key Lessons Learned
+1. **Error suppression is dangerous**: The `2>/dev/null` in buildspec hid critical IAM permission errors, making debugging extremely difficult
+2. **IAM resource constraints matter**: Adding an action to a policy isn't enough - the resources must match what the API actually accesses
+3. **Runtime evidence is essential**: Static code analysis couldn't reveal this; only runtime debugging with actual error messages exposed the real issue
+4. **Different AWS APIs have different resource requirements**: `SendCommand` can be scoped to specific instances/documents, but `GetCommandInvocation` needs wildcard access
+5. **Systematic debugging pays off**: After 3 failed fix attempts, adding instrumentation to capture runtime data immediately revealed the true root cause
+6. **IAM permission scope varies by action**: Not all actions in the same service (SSM) require the same resource constraints
+7. **Silent failures in automation are the hardest to debug**: The build appeared to work (command was sent) but status checks failed silently

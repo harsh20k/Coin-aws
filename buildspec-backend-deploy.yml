@@ -42,36 +42,9 @@ phases:
           echo "Command ID: $CMD_ID"
       - echo "Waiting for command to complete..."
       - |
-          # DEBUG: Test H1 - Check if get-command-invocation works at all
-          echo "[DEBUG-H1] Testing get-command-invocation permission..."
-          TEST_RESULT=$(aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION 2>&1 || true)
-          echo "[DEBUG-H1] Raw API response: $TEST_RESULT"
-          
           for i in $(seq 1 90); do
-            echo "[DEBUG-H4] Loop iteration: $i"
-            
-            # DEBUG: Test H2/H3 - Capture full error output
-            STATUS_OUTPUT=$(aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION --query "Status" --output text 2>&1)
-            STATUS_EXIT_CODE=$?
-            echo "[DEBUG-H2] get-command-invocation exit code: $STATUS_EXIT_CODE"
-            echo "[DEBUG-H2] Raw status output: $STATUS_OUTPUT"
-            
-            # Parse status (fallback to Pending if command fails)
-            if [ $STATUS_EXIT_CODE -eq 0 ]; then
-              STATUS="$STATUS_OUTPUT"
-            else
-              echo "[DEBUG-H2] Command failed, defaulting to Pending"
-              STATUS="Pending"
-            fi
-            
-            echo "Status: $STATUS (iteration $i/90)"
-            
-            # DEBUG: Test H5 - Check SSM agent status
-            if [ $((i % 6)) -eq 0 ]; then
-              echo "[DEBUG-H5] Checking SSM instance info..."
-              aws ssm describe-instance-information --instance-information-filter-list key=InstanceIds,valueSet=$BACKEND_INSTANCE_ID --region $AWS_REGION --output json || echo "[DEBUG-H5] Failed to get instance info"
-            fi
-            
+            STATUS=$(aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION --query "Status" --output text 2>/dev/null || echo "Pending")
+            echo "Status: $STATUS"
             if [ "$STATUS" = "Success" ]; then
               echo "Command completed. Output from instance:"
               aws ssm get-command-invocation --command-id $CMD_ID --instance-id $BACKEND_INSTANCE_ID --region $AWS_REGION --query "StandardOutputContent" --output text
