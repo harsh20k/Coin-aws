@@ -26,6 +26,35 @@ locals {
   project_name = var.project_name
 }
 
+data "aws_iam_policy_document" "lambda_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "auto_confirm_lambda" {
+  name               = "${local.project_name}-auto-confirm-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "auto_confirm_lambda_basic" {
+  role       = aws_iam_role.auto_confirm_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_lambda_function" "auto_confirm" {
+  function_name    = "${local.project_name}-auto-confirm"
+  filename         = "${path.module}/lambda/auto_confirm.zip"
+  source_code_hash = filebase64sha256("${path.module}/lambda/auto_confirm.zip")
+  handler          = "index.handler"
+  runtime          = "python3.12"
+  role             = aws_iam_role.auto_confirm_lambda.arn
+}
+
 resource "aws_cognito_user_pool" "main" {
   name = "${local.project_name}-pool"
 
@@ -41,6 +70,18 @@ resource "aws_cognito_user_pool" "main" {
     attribute_data_type = "String"
     required            = true
   }
+
+  lambda_config {
+    pre_sign_up = aws_lambda_function.auto_confirm.arn
+  }
+}
+
+resource "aws_lambda_permission" "cognito_pre_signup" {
+  statement_id  = "AllowCognitoInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.auto_confirm.function_name
+  principal     = "cognito-idp.amazonaws.com"
+  source_arn    = aws_cognito_user_pool.main.arn
 }
 
 resource "aws_cognito_user_pool_client" "app" {
