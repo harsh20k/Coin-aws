@@ -101,7 +101,8 @@ data "aws_iam_policy_document" "backend_bedrock_access" {
     sid    = "BedrockInvokeModel"
     effect = "Allow"
     actions = [
-      "bedrock:InvokeModel"
+      "bedrock:InvokeModel",
+      "bedrock:GetInferenceProfile"
     ]
     resources = [
       "arn:aws:bedrock:*::foundation-model/*",
