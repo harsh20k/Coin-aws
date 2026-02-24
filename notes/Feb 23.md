@@ -257,3 +257,76 @@ After `terraform apply`:
 5. **Systematic debugging pays off**: After 3 failed fix attempts, adding instrumentation to capture runtime data immediately revealed the true root cause
 6. **IAM permission scope varies by action**: Not all actions in the same service (SSM) require the same resource constraints
 7. **Silent failures in automation are the hardest to debug**: The build appeared to work (command was sent) but status checks failed silently
+
+---
+
+## Cognito Authentication: Session Persistence and Verification
+
+### Session Persistence Behavior
+
+**Question**: When users log in via Cognito and close/reload the browser tab, will they remain logged in?
+
+**Answer**: Yes, users remain logged in.
+
+**How it works**:
+- AWS Amplify's `Authenticator` component stores authentication tokens in browser `localStorage` by default
+- Tokens persist across browser sessions (close/reopen tab)
+- Amplify automatically reads tokens from `localStorage` on page load and validates them
+
+**Session duration**:
+- Access/ID tokens expire after ~1 hour (configurable in Cognito User Pool)
+- Refresh token lasts up to 30 days (configurable)
+- Amplify automatically uses refresh token to get new tokens when access token expires
+- User stays logged in seamlessly until:
+  - Refresh token expires
+  - User explicitly signs out
+  - Browser storage is cleared
+
+**Current implementation** (`frontend/src/auth/AmplifyConfig.ts`):
+- Uses default Amplify configuration
+- Session persistence is active
+- No explicit configuration to disable it
+
+**Alternative behavior**: To logout users on tab close, would need to configure Amplify to use `sessionStorage` instead of `localStorage` (not currently implemented).
+
+---
+
+### Email Verification Options
+
+**Current setup** (`frontend/src/auth/AmplifyConfig.ts`):
+```typescript
+signUpVerificationMethod: 'code'
+```
+Users must verify email with OTP code during signup.
+
+**Alternative options**:
+
+**Option 1: Disable email verification entirely**
+- Set email as not required to be verified in Cognito User Pool
+- Users can immediately log in without verification
+- ❌ Security risk: allows fake emails, no account recovery
+- ❌ Not recommended for production
+
+**Option 2: Auto-confirm users (Lambda trigger)**
+- Use Pre Sign-up Lambda trigger to automatically confirm users
+- Marks email as verified without user action
+- ✓ Better than Option 1 (email still recorded)
+- ❌ Still allows fake emails
+
+**Option 3: Email link instead of OTP code**
+- Send "click to verify" link instead of 6-digit code
+- User clicks link → auto-verified
+- ✓ Better UX than typing codes
+- ✓ Still verifies email ownership
+- Configure in Cognito: set verification type to "link" instead of "code"
+
+**Option 4: Skip self-signup entirely**
+- Disable self-signup in Cognito
+- Admin creates users manually (or via API)
+- Users get temporary password
+- No email verification needed
+
+**Recommendation for Dalla (finance app)**:
+- Keep email verification for security and account recovery
+- Consider switching from OTP code to email link (Option 3) for better UX
+- Financial apps need verified contact info and secure authentication
