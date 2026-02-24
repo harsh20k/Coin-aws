@@ -147,7 +147,9 @@ Please provide a helpful, concise answer based on the data above. If the data do
 async def _invoke_bedrock(prompt: str) -> str:
     """Call Amazon Bedrock with the prompt and return the AI's response."""
     
-    logger.info(f"Invoking Bedrock with model: anthropic.claude-haiku-4-5-20251001-v1:0")
+    # Try Claude 3.5 Haiku (more widely available)
+    model_id = "anthropic.claude-3-5-haiku-20241022-v1:0"
+    logger.info(f"Invoking Bedrock with model: {model_id}")
     
     try:
         bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
@@ -164,7 +166,7 @@ async def _invoke_bedrock(prompt: str) -> str:
         }
         
         response = bedrock.invoke_model(
-            modelId="anthropic.claude-haiku-4-5-20251001-v1:0",
+            modelId=model_id,
             body=json.dumps(payload)
         )
         
@@ -178,6 +180,7 @@ async def _invoke_bedrock(prompt: str) -> str:
         error_code = e.response['Error']['Code']
         error_msg = e.response['Error'].get('Message', str(e))
         logger.error(f"Bedrock ClientError: {error_code} - {error_msg}")
+        logger.error(f"Full error response: {e.response}")
         
         if error_code == 'AccessDeniedException':
             raise HTTPException(
