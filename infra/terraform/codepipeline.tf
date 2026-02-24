@@ -183,7 +183,8 @@ data "aws_iam_policy_document" "codebuild_permissions" {
     sid    = "SSMSendCommand"
     effect = "Allow"
     actions = [
-      "ssm:SendCommand"
+      "ssm:SendCommand",
+      "ssm:GetCommandInvocation"
     ]
     resources = [
       "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.backend.id}",

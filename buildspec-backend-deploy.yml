@@ -18,6 +18,8 @@ phases:
           aws ecr get-login-password --region "$REGION" | sudo docker login --username AWS --password-stdin __ECR_REGISTRY__
           echo "[$(date -Iseconds)] Pulling image..."
           sudo docker pull __ECR_URI__
+          echo "[$(date -Iseconds)] Creating/updating database tables..."
+          sudo docker run --rm -e DATABASE_URL="$DATABASE_URL" __ECR_URI__ python -m scripts.create_tables
           echo "[$(date -Iseconds)] Stopping/removing existing container..."
           sudo docker stop backend 2>/dev/null || true
           sudo docker rm backend 2>/dev/null || true
