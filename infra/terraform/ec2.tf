@@ -95,6 +95,30 @@ resource "aws_iam_role_policy_attachment" "backend_ssm_managed_core" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# Allow backend to invoke Bedrock models for AI chat
+data "aws_iam_policy_document" "backend_bedrock_access" {
+  statement {
+    sid    = "BedrockInvokeModel"
+    effect = "Allow"
+    actions = [
+      "bedrock:InvokeModel"
+    ]
+    resources = [
+      "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "backend_bedrock_access" {
+  name   = "${local.project_name}-backend-bedrock-access"
+  policy = data.aws_iam_policy_document.backend_bedrock_access.json
+}
+
+resource "aws_iam_role_policy_attachment" "backend_bedrock_access" {
+  role       = aws_iam_role.backend.name
+  policy_arn = aws_iam_policy.backend_bedrock_access.arn
+}
+
 resource "aws_iam_instance_profile" "backend" {
   name = "${local.project_name}-backend-instance-profile"
   role = aws_iam_role.backend.name
