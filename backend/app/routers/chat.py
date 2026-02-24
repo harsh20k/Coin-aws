@@ -147,8 +147,8 @@ Please provide a helpful, concise answer based on the data above. If the data do
 async def _invoke_bedrock(prompt: str) -> str:
     """Call Amazon Bedrock with the prompt and return the AI's response."""
     
-    # Use inference profile for Claude 3.5 Haiku (required for on-demand throughput)
-    model_id = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+    # Use global endpoint for Claude 4.5 Haiku (no pricing premium, dynamic routing)
+    model_id = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
     logger.info(f"Invoking Bedrock with model: {model_id}")
     
     try:
