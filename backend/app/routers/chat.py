@@ -1,4 +1,5 @@
 import json
+import logging
 from uuid import UUID
 
 import boto3
@@ -14,6 +15,7 @@ from app.models import Budget, Goal, Subcategory, Transaction, Wallet
 from app.schemas import ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 def _format_cents_to_dollars(cents: int) -> str:
@@ -145,11 +147,7 @@ Please provide a helpful, concise answer based on the data above. If the data do
 async def _invoke_bedrock(prompt: str) -> str:
     """Call Amazon Bedrock with the prompt and return the AI's response."""
     
-    # #region agent log
-    import time, json as _json
-    _log = {"sessionId": "13f9d1", "hypothesisId": "H1,H2,H3,H4", "location": "chat.py:145", "message": "Bedrock invocation started", "data": {"model_id": "anthropic.claude-haiku-4-5-20251001-v1:0", "region": "us-east-1"}, "timestamp": int(time.time() * 1000)}
-    open("/Users/harsh/Artifacts/Dalla/.cursor/debug-13f9d1.log", "a").write(_json.dumps(_log) + "\n")
-    # #endregion
+    logger.info(f"Invoking Bedrock with model: anthropic.claude-haiku-4-5-20251001-v1:0")
     
     try:
         bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
@@ -165,48 +163,28 @@ async def _invoke_bedrock(prompt: str) -> str:
             ]
         }
         
-        # #region agent log
-        _log = {"sessionId": "13f9d1", "hypothesisId": "H3,H4", "location": "chat.py:162", "message": "Before invoke_model", "data": {"payload_size": len(json.dumps(payload))}, "timestamp": int(time.time() * 1000)}
-        open("/Users/harsh/Artifacts/Dalla/.cursor/debug-13f9d1.log", "a").write(_json.dumps(_log) + "\n")
-        # #endregion
-        
         response = bedrock.invoke_model(
             modelId="anthropic.claude-haiku-4-5-20251001-v1:0",
             body=json.dumps(payload)
         )
         
-        # #region agent log
-        _log = {"sessionId": "13f9d1", "hypothesisId": "H4", "location": "chat.py:167", "message": "After invoke_model success", "data": {"response_metadata": str(response.get('ResponseMetadata', {}))}, "timestamp": int(time.time() * 1000)}
-        open("/Users/harsh/Artifacts/Dalla/.cursor/debug-13f9d1.log", "a").write(_json.dumps(_log) + "\n")
-        # #endregion
-        
         result = json.loads(response['body'].read())
         ai_reply = result['content'][0]['text']
         
-        # #region agent log
-        _log = {"sessionId": "13f9d1", "hypothesisId": "H4", "location": "chat.py:168", "message": "Parsed response", "data": {"reply_length": len(ai_reply)}, "timestamp": int(time.time() * 1000)}
-        open("/Users/harsh/Artifacts/Dalla/.cursor/debug-13f9d1.log", "a").write(_json.dumps(_log) + "\n")
-        # #endregion
-        
+        logger.info(f"Bedrock response received, length: {len(ai_reply)}")
         return ai_reply
         
     except ClientError as e:
         error_code = e.response['Error']['Code']
-        # #region agent log
-        _log = {"sessionId": "13f9d1", "hypothesisId": "H1,H2,H3", "location": "chat.py:172", "message": "Bedrock ClientError", "data": {"error_code": error_code, "error_message": str(e), "full_response": str(e.response)}, "timestamp": int(time.time() * 1000)}
-        open("/Users/harsh/Artifacts/Dalla/.cursor/debug-13f9d1.log", "a").write(_json.dumps(_log) + "\n")
-        # #endregion
+        error_msg = e.response['Error'].get('Message', str(e))
+        logger.error(f"Bedrock ClientError: {error_code} - {error_msg}")
+        
         if error_code == 'AccessDeniedException':
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="AI service is not configured. Please contact support."
             )
         elif error_code == 'ThrottlingException':
-            # region:debug-ef78fc
-            import time as _time3, json as _json3
-            _log3 = {"sessionId": "ef78fc", "hypothesisId": "H-G", "location": "chat.py:_invoke_bedrock:throttle", "message": "Bedrock throttling detected", "data": {"error_code": error_code, "error_message": str(e)}, "timestamp": int(_time3.time() * 1000)}
-            open("/Users/harsh/Artifacts/Dalla/.cursor/debug-ef78fc.log", "a").write(_json3.dumps(_log3) + "\n")
-            # endregion
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Too many requests. Please try again in a moment."
@@ -228,31 +206,13 @@ async def chat(
     Chat endpoint that uses Amazon Bedrock to answer questions about user's finances.
     """
     
-    # #region agent log
-    import time, json as _json
-    _log = {"sessionId": "13f9d1", "hypothesisId": "H4,H5", "location": "chat.py:221", "message": "Chat endpoint called", "data": {"user_id": str(user_id), "message_length": len(body.message)}, "timestamp": int(time.time() * 1000)}
-    open("/Users/harsh/Artifacts/Dalla/.cursor/debug-13f9d1.log", "a").write(_json.dumps(_log) + "\n")
-    # #endregion
+    # Fetch user's financial data
+    data = await _fetch_user_financial_data(db, user_id)
     
-    try:
-        # Fetch user's financial data
-        data = await _fetch_user_financial_data(db, user_id)
-        
-        # Build prompt with data
-        prompt = _build_prompt(body.message, data)
-        
-        # Call Bedrock
-        ai_reply = await _invoke_bedrock(prompt)
-        
-        # #region agent log
-        _log = {"sessionId": "13f9d1", "hypothesisId": "H4", "location": "chat.py:238", "message": "Chat completed successfully", "data": {"reply_length": len(ai_reply)}, "timestamp": int(time.time() * 1000)}
-        open("/Users/harsh/Artifacts/Dalla/.cursor/debug-13f9d1.log", "a").write(_json.dumps(_log) + "\n")
-        # #endregion
-        
-        return ChatResponse(reply=ai_reply, prompt=prompt)
-    except Exception as e:
-        # #region agent log
-        _log = {"sessionId": "13f9d1", "hypothesisId": "H4,H5", "location": "chat.py:exception", "message": "Unexpected exception in chat endpoint", "data": {"exception_type": type(e).__name__, "exception_message": str(e)}, "timestamp": int(time.time() * 1000)}
-        open("/Users/harsh/Artifacts/Dalla/.cursor/debug-13f9d1.log", "a").write(_json.dumps(_log) + "\n")
-        # #endregion
-        raise
+    # Build prompt with data
+    prompt = _build_prompt(body.message, data)
+    
+    # Call Bedrock
+    ai_reply = await _invoke_bedrock(prompt)
+    
+    return ChatResponse(reply=ai_reply, prompt=prompt)
