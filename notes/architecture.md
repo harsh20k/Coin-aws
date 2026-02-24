@@ -2,7 +2,11 @@
 
 ## Overview
 
-Dalla is a full-stack application deployed on AWS. **Users** interact with a **single-page frontend** served over **CloudFront** (origin: **S3**). The frontend calls a **REST API** running on an **EC2** instance (backend container from **ECR**). The API uses **Cognito** for authentication and **RDS (PostgreSQL)** for persistence. Configuration (database URL, Cognito IDs, API URL) is stored in **SSM Parameter Store** and read at runtime or build time.
+Dalla is a full-stack personal finance app deployed on AWS. **Users** interact with a **single-page frontend** served over **CloudFront** (origin: **S3**). The frontend calls a **REST API** running on an **EC2** instance (backend container from **ECR**). The API uses **Cognito** for authentication, **RDS (PostgreSQL)** for persistence, and **Amazon Bedrock** (Claude Haiku) for AI-powered chat. Configuration (database URL, Cognito IDs, API URL) is stored in **SSM Parameter Store** and read at runtime or build time.
+
+**Auth:** Cognito User Pool handles sign-up and sign-in. A **Pre Sign-Up Lambda** trigger auto-confirms new users so they can log in immediately without email verification. The backend validates Cognito JWTs on every request.
+
+**AI Chat:** The backend's `/chat` endpoint fetches the user's wallets, transactions, budgets, and goals, injects them into a prompt, and calls **Amazon Bedrock** (Claude Haiku inference profile). The AI persona is **Penny** — a playful financial assistant. The inline chat panel lives on the Dashboard.
 
 **Deployment** is fully automated: code lives in **CodeCommit**. A **CodePipeline** runs on push: **CodeBuild** builds the backend Docker image and pushes it to **ECR**, deploys the backend by running **SSM Run Command** on the EC2 instance (pull new image, restart container), and builds the frontend (with env from SSM), then syncs to **S3** and invalidates **CloudFront**. No manual ECR push or S3 upload is required.
 
@@ -67,8 +71,13 @@ flowchart TB
   subgraph data [Data and auth]
     RDS[(RDS PostgreSQL)]
     Cognito[Cognito User Pool]
+    PreSignUpLambda[Pre Sign-Up Lambda]
+    Bedrock[Amazon Bedrock\nClaude Haiku]
     BackendContainer --> RDS
     BackendContainer --> Cognito
+    BackendContainer -->|"chat /chat"| Bedrock
+    Cognito -->|"pre sign-up trigger"| PreSignUpLambda
+    PreSignUpLambda -->|"auto-confirm user"| Cognito
   end
 
   subgraph vpc [VPC]
@@ -92,7 +101,9 @@ flowchart TB
 | **ECR**                 | Stores backend Docker image; EC2 pulls `:latest` on deploy.                                                                             |
 | **EC2**                 | Single instance with Docker and **SSM Agent** installed; runs backend container deployed by pipeline, gets config from SSM.             |
 | **RDS**                 | PostgreSQL; backend connects via private VPC; tables created once via `create_tables`.                                                  |
-| **Cognito**             | User pool + app client; frontend and backend use for sign-up/sign-in and token validation.                                              |
+| **Cognito**             | User pool + app client; sign-up/sign-in and JWT validation. Pre Sign-Up Lambda auto-confirms users (no email verification).             |
+| **Pre Sign-Up Lambda**  | Triggered by Cognito on sign-up; sets `autoConfirmUser` + `autoVerifyEmail` so users can log in immediately.                            |
+| **Amazon Bedrock**      | Claude Haiku (inference profile) powers the Penny chat assistant; called by the backend with user financial context in the prompt.      |
 | **S3**                  | Holds static frontend build; access only via CloudFront (OAI).                                                                          |
 | **CloudFront**          | Serves frontend; optional `allow-all` protocol so app can use HTTP backend.                                                             |
 | **SSM Parameter Store** | Stores DATABASE_URL, Cognito IDs, API URL; read by backend (deploy script) and by frontend CodeBuild at build time.                     |

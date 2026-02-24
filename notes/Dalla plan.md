@@ -51,3 +51,7 @@ A smart finance advisor web-app where users log their transactions and get perso
 - **Main 2**: Scope AI answers to the user’s wallets, transactions, budgets, and goals (send summary or structured context in the prompt).
 - **Nice**: Try one or two prompt variants and pick the one that works best; then do a full dry run of the app, fix any last-minute issues that break the demo, and stop changing code.
 
+### Feb 24
+- **Main 1**: Run `terraform apply` to deploy the Cognito auto-confirm Lambda, then smoke-test sign-up and login end-to-end in the cloud.
+- **Main 2**: Push all pending changes (UI renames, Lambda, Terraform), clean up tracked `__pycache__` files from git.
+- **Nice**: Update the architecture diagram to include Bedrock and the Pre Sign-Up Lambda.

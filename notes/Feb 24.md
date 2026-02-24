@@ -132,3 +132,44 @@ Replaced simple nav-card grid with a full **3-column layout**:
 ### Other
 - `frontend/src/api/types.ts` — added `prompt?: string` to `ChatResponse`
 - `frontend/src/components/Layout.css` — bumped `max-width` from `900px` to `1300px` for 3-column layout
+
+---
+
+## Cognito Auto-Confirm on Sign Up (Feb 24)
+
+**Goal:** Allow users to sign up and immediately log in without email verification.
+
+**Problem:** Cognito's default sign-up flow puts users in `UNCONFIRMED` state until they verify their email. There's no native setting to skip this.
+
+**Solution:** Pre Sign-Up Lambda trigger that auto-confirms users.
+
+**How it works:**
+- `infra/terraform/lambda/index.py` — 4-line Lambda that sets `autoConfirmUser = True` and `autoVerifyEmail = True` in the Cognito Pre Sign-Up event response
+- `autoConfirmUser` is the critical flag — skips `UNCONFIRMED` state so user can log in immediately
+- `autoVerifyEmail` marks email as verified in user attributes
+
+**Terraform changes (`infra/terraform/main.tf`):**
+- `aws_iam_role.auto_confirm_lambda` — execution role for the Lambda
+- `aws_iam_role_policy_attachment` — attaches `AWSLambdaBasicExecutionRole`
+- `aws_lambda_function.auto_confirm` — deploys `lambda/auto_confirm.zip`
+- `aws_cognito_user_pool.main` — added `lambda_config { pre_sign_up = ... }`
+- `aws_lambda_permission.cognito_pre_signup` — allows Cognito to invoke the Lambda
+
+**IAM issue during deployment:**
+- `dalla-project-owner` IAM user lacked `lambda:CreateFunction` and `lambda:ListVersionsByFunction` permissions
+- Fixed by adding inline policy with `lambda:*` scoped to `arn:aws:lambda:us-east-1:411960113601:function:dalla-*`
+
+---
+
+## UI Renames (Feb 24)
+
+- `frontend/index.html` — page title changed from `Dalla` to `coinBaby`
+- `frontend/src/components/Layout.tsx` — app header changed from `theCoin` to `coinBaby`
+- `frontend/src/pages/Dashboard.tsx` — chat panel header changed from `🪙 coinBaby` to `👶 Penny`; hint + placeholder updated to match
+
+---
+
+## Git Cleanup (Feb 24)
+
+- `__pycache__/` was being tracked despite being in `.gitignore` (committed before rule existed)
+- Fix: `git rm -r --cached backend/app/__pycache__ backend/app/routers/__pycache__`
