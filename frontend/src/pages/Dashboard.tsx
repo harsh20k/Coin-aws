@@ -180,7 +180,31 @@ export function Dashboard() {
           <h3 className="db-panel-title">👶 Penny</h3>
           <div className="db-chat-messages">
             {chatHistory.length === 0 && (
-              <p className="db-chat-hint">Ask Penny about your finances!</p>
+              <div className="db-chat-empty">
+                <p className="db-chat-hint">Ask Penny about your finances!</p>
+                <div className="db-quick-questions">
+                  {[
+                    'Hey Penny, what is my major expense?',
+                    'Penny, how should I save more money toward my goals?',
+                    'Penny, where am I overspending this month?',
+                    'Hey Penny, give me a summary of my finances',
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      className="db-quick-q"
+                      onClick={() => {
+                        setMessage(q)
+                        setTimeout(() => {
+                          const form = document.querySelector('.db-chat-form') as HTMLFormElement
+                          form?.requestSubmit()
+                        }, 0)
+                      }}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             {chatHistory.map((msg, i) => (
               <div key={i} className={`db-chat-msg db-chat-msg-${msg.role}`}>

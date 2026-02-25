@@ -204,6 +204,7 @@ Replace `<ACCOUNT_ID>` with your account ID (`aws sts get-caller-identity --quer
 - **Mixed content:** Backend is HTTP, frontend on CloudFront. CloudFront is `viewer_protocol_policy = "allow-all"` so you can open the app via **http://** (CloudFront domain) and avoid blocked HTTP API calls. Use the HTTP frontend URL when testing (step 6).
 - **After destroy + apply:** ECR is empty. Either run the pipeline (it will build and push the image, then deploy) or push the backend image manually (`--platform linux/amd64`), then SSH and run ECR login + `docker run` + `create_tables` (step 4), or replace the instance (`terraform taint aws_instance.backend` + `terraform apply`) so user_data runs again.
 - **RDS master password:** RDS disallows `/`, `@`, `"`, and space in the master password. The Terraform `random_password` for RDS uses `override_special` so only allowed specials (e.g. `!#$%&*()-_=+[]{}<>:?`) are used. If you see `InvalidParameterValue` for `MasterUserPassword`, ensure `rds.tf` has that override (see `notes/Feb 20.md`).
+- **DATABASE_URL password encoding:** The `override_special` characters include URL-special chars (`#`, `%`, `?`, `:`). The password in `database_url` must be wrapped with `urlencode()` — otherwise these chars corrupt the connection string and cause `InvalidPasswordError`. If you see `asyncpg.exceptions.InvalidPasswordError: password authentication failed`, check that `rds.tf` uses `urlencode(random_password.db_password.result)` in the `database_url` local (see `notes/Feb 25.md`).
 
 ---
 
