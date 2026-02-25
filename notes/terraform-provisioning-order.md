@@ -18,9 +18,7 @@ Terraform resolves the dependency graph automatically. This is the logical order
 
 - Phase 11–12: CodeBuild projects → CodePipeline (last, since it references almost everything)
 
-- Phase 13: CloudWatch alarms
-
-- Phase 14: null_resource destroy-time bucket emptier
+- Phase 13: null_resource destroy-time bucket emptier
 
 ---
 
@@ -48,8 +46,6 @@ Resources with no dependencies on other resources in this config.
 11. `aws_iam_role.codepipeline` — IAM role for CodePipeline
 12. `aws_codecommit_repository.main` — CodeCommit repo (source of truth for pipeline)
 13. `aws_eip.backend` — Elastic IP (allocated before instance exists)
-14. `aws_cloudwatch_log_group.backend` — CloudWatch log group for backend
-
 ---
 
 ## Phase 3 — VPC children
@@ -151,14 +147,7 @@ All depend on: CodeBuild IAM role, ECR repo, EC2 instance, S3 buckets, CloudFron
 
 ---
 
-## Phase 13 — CloudWatch alarms
-
-58. `aws_cloudwatch_metric_alarm.backend_cpu` — depends on EC2 instance
-59. `aws_cloudwatch_metric_alarm.rds_cpu` — depends on RDS instance
-
----
-
-## Phase 14 — Destroy-time only
+## Phase 13 — Destroy-time only
 
 60. `null_resource.empty_frontend_bucket` — runs a local-exec script on `terraform destroy` to empty the versioned S3 bucket before deletion; depends on bucket versioning + bucket policy
 
@@ -173,7 +162,6 @@ VPC
       └─ RDS Subnet Group → RDS Instance → SSM DATABASE_URL
       └─ EC2 IAM Role → Instance Profile → EC2 Instance → EIP Association
                                                         └─ SSM API_URL
-                                                        └─ CloudWatch CPU Alarm
 Lambda IAM Role → Lambda → Cognito User Pool → Cognito App Client
                                              └─ SSM Cognito params
 ECR Repo

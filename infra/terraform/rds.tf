@@ -38,7 +38,7 @@ resource "aws_db_instance" "main" {
 }
 
 locals {
-  database_url = "postgresql+asyncpg://dalla:${random_password.db_password.result}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/dalla"
+  database_url = "postgresql+asyncpg://dalla:${urlencode(random_password.db_password.result)}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/dalla"
 }
 
 output "database_endpoint" {
