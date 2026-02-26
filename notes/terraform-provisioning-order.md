@@ -109,11 +109,15 @@ Depend on `aws_vpc.main`.
 
 ---
 
-## Phase 9 — CloudFront + S3 policy
+## Phase 9 — ACM + CloudFront + S3 policy
 
 44. `aws_cloudfront_origin_access_identity.frontend` — OAI so CloudFront can read S3
 45. `aws_s3_bucket_policy.frontend` — grants OAI read access; depends on public access block + OAI
-46. `aws_cloudfront_distribution.frontend` — depends on S3 bucket + OAI
+46. `aws_acm_certificate.frontend` *(conditional)* — requests TLS cert for `frontend_domain_name`; DNS validation
+47. `aws_route53_record.frontend_cert_validation` *(conditional)* — CNAME for ACM DNS validation; depends on cert + Route 53 zone
+48. `aws_acm_certificate_validation.frontend` *(conditional)* — waits for cert issuance (~2-5 min); depends on validation record
+49. `aws_cloudfront_distribution.frontend` — depends on S3 bucket + OAI + ACM cert validation (if custom domain)
+50. `aws_route53_record.frontend` *(conditional)* — A alias record: `frontend_domain_name` → CloudFront; depends on distribution + Route 53 zone
 
 ---
 
@@ -165,7 +169,9 @@ VPC
 Lambda IAM Role → Lambda → Cognito User Pool → Cognito App Client
                                              └─ SSM Cognito params
 ECR Repo
-S3 (frontend) → CloudFront OAI → S3 Bucket Policy → CloudFront Distribution
+S3 (frontend) → CloudFront OAI → S3 Bucket Policy
+ACM Cert → DNS Validation → Cert Validation ─┐
+                                               ├→ CloudFront Distribution → Route 53 A (frontend)
 S3 (artifacts) → CodePipeline
 CodeBuild IAM Role → CodeBuild Projects (x3)
 CodeCommit Repo ──┐

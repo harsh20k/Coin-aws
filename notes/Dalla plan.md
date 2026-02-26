@@ -55,3 +55,8 @@ A smart finance advisor web-app where users log their transactions and get perso
 - **Main 1**: Run `terraform apply` to deploy the Cognito auto-confirm Lambda, then smoke-test sign-up and login end-to-end in the cloud.
 - **Main 2**: Push all pending changes (UI renames, Lambda, Terraform), clean up tracked `__pycache__` files from git.
 - **Nice**: Update the architecture diagram to include Bedrock and the Pre Sign-Up Lambda.
+
+### Feb 25
+- **Main 1**: Full E2E smoke test on `coinbaby.click` — fresh sign-up, wallets, transactions, budgets, goals, Penny chat.
+- **Main 2**: Write project report — architecture overview, service justifications, screenshots, requirements checklist.
+- **Nice**: Set up `api.coinbaby.click` for the backend (uncomment tfvars, apply, re-run pipeline).

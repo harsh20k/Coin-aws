@@ -1,46 +1,66 @@
-# Dalla
+# coinBaby (Dalla)
 
-A **smart finance advisor** web app built and deployed on AWS. Users track transactions across multiple wallets, set budgets and goals, and get AI-powered answers about their spending and habits.
+A **smart finance advisor** web app on AWS. Users track transactions across multiple wallets, set budgets and goals, and chat with **Penny** — an AI assistant powered by Amazon Bedrock (Claude 3.5 Haiku) that answers questions about their spending and habits.
+
+**Live:** [http://coinbaby.click](http://coinbaby.click)
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser -->|"http://coinbaby.click"| CloudFront
+    CloudFront --> S3["S3 (React SPA)"]
+    Browser -->|"http://EIP:8000"| EC2["EC2 (FastAPI)"]
+    EC2 --> RDS["RDS PostgreSQL"]
+    EC2 --> Bedrock["Bedrock (Claude 3.5 Haiku)"]
+    EC2 --> Cognito
+    Push["git push codecommit"] --> CodePipeline
+    CodePipeline --> CodeBuild
+    CodeBuild -->|backend| ECR
+    CodeBuild -->|frontend| S3
+```
+
+| Layer | Service |
+|-------|---------|
+| Frontend | S3 + CloudFront, custom domain via Route 53 + ACM |
+| Backend | EC2 `t3.micro`, Elastic IP, Docker |
+| Database | RDS PostgreSQL 16 (`db.t3.micro`) |
+| Auth | Cognito User Pool (auto-confirm via Lambda trigger) |
+| AI | Bedrock — Claude 3.5 Haiku inference profile |
+| CI/CD | CodeCommit → CodePipeline → CodeBuild (build image, deploy via SSM, build frontend) |
+| IaC | Terraform (single `terraform apply`) |
 
 ---
 
 ## Features
 
-### Authentication (AWS)
+### Authentication
 
-- **Sign up** and **log in** with email and password via AWS (e.g. Amazon Cognito).
-- Session management handled by the chosen AWS auth service.
+- Sign up and log in with email/password via **Amazon Cognito**.
+- Auto-confirmed on sign-up (Pre Sign-Up Lambda trigger) — no email verification step.
 
 ### Wallets & Transactions
 
-- **Multiple wallets** per user; each wallet can have **multiple transactions**.
+- Multiple wallets per user; each wallet holds transactions.
 - **Transaction types:** Income, Expense, Investment, Donation.
-- Each transaction has:
-  - **Tags**
-  - **Description**
-- **Subcategories** per transaction type:
-  - Default subcategories provided for each type.
-  - Users can add their own subcategories.
+- Each transaction has tags, description, and a subcategory (defaults provided; users can add custom ones).
 
 ### Budgets & Goals
 
-- **Budgets** — Set spending limits on expense categories; the app tracks usage against these limits.
-- **Goals** — Define targets (e.g. “Invest $500 this month”); progress is tracked over time.
+- **Budgets** — spending limits on expense categories; progress tracked automatically.
+- **Goals** — savings/investment targets with progress bars computed from transactions.
 
-### AI Conversation
+### Penny (AI Chat)
 
-- **Conversation feature** — Users ask questions in natural language about their data, e.g.:
-  - “What was the most avoidable expense this month?”
-  - Questions about budgets, goals, and transactions.
-- Questions are processed by **AI on AWS** (e.g. Amazon Bedrock) over the user’s data; responses are shown in the app.
-- **Extensible** — Designed so more AI features can be added, such as:
-  - Suggesting new goals
-  - Suggesting restraint in certain expense categories
-  - Other advice and insights
+- Chat assistant on the dashboard powered by **Amazon Bedrock** (Claude 3.5 Haiku via cross-region inference profile).
+- Answers questions about spending, budgets, goals using the user's financial data as context.
+- Quick-question templates for common queries.
 
 ---
 
-## User flow
+## User Flow
 
 ```mermaid
 flowchart LR
@@ -51,7 +71,7 @@ flowchart LR
     D --> E[Dashboard]
     E --> F[Wallets & transactions]
     E --> G[Budgets & goals]
-    E --> H[AI conversation]
+    E --> H[Penny AI chat]
     F --> F1[Create wallet]
     F --> F2[Add transaction]
     F2 --> F2a[Income / Expense / Investment / Donation]
@@ -70,25 +90,26 @@ flowchart LR
 
 ## Deploy on AWS
 
-See **`notes/Deploy-AWS.md`** for full steps (Terraform, ECR, DB schema, frontend build and S3 sync). After deploy, open the app via the CloudFront URL using **http** (not https) so the browser allows the HTTP backend (mixed-content workaround).
+See **`notes/Deploy-AWS.md`** for full steps (Terraform, ECR, DB schema, CI/CD pipeline). After deploy the app is available at `http://coinbaby.click` (or the CloudFront URL if no custom domain is configured). Use **http** (not https) so the browser allows calls to the HTTP backend without mixed-content blocking.
 
 ---
 
 ## Project Context
 
-- **Course:** CSCI5409 Advanced Topics in Cloud Computing (Winter 2026)  
-- **Deliverable:** Mid-term cloud project (20% of grade).  
-- **Requirements:** Fully functional cloud application on AWS; at least one service from Compute, Storage, Networking, and Database; Infrastructure as Code (IaC); single-command deployment; original code; runs within AWS Academy Learner Lab constraints.
+- **Course:** CSCI5409 Advanced Topics in Cloud Computing (Winter 2026)
+- **Deliverable:** Mid-term cloud project (20% of grade).
+- **Requirements:** Fully functional cloud application on AWS; at least one service from Compute, Storage, Networking, and Database; Infrastructure as Code (IaC); single-command deployment; original code.
 
 ---
 
-## Tech Stack (Planned)
+## Tech Stack
 
-- **Auth:** AWS (e.g. Cognito) for sign up, login, and sessions.
-- **Compute:** e.g. Lambda, EC2, or ECS.
-- **Storage:** e.g. S3, EBS, or EFS.
-- **Networking:** e.g. API Gateway, CloudFront, VPC.
-- **Database:** e.g. DynamoDB or RDS.
-- **AI:** AWS AI services (e.g. Bedrock) for the conversation and extensible advice features.
+- **Auth:** Amazon Cognito (User Pool + Lambda auto-confirm trigger)
+- **Compute:** EC2 `t3.micro` (backend Docker container), Lambda (Cognito trigger)
+- **Storage:** S3 (frontend static assets, pipeline artifacts)
+- **Networking:** VPC, CloudFront, Route 53, ACM
+- **Database:** RDS PostgreSQL 16
+- **AI:** Amazon Bedrock (Claude 3.5 Haiku inference profile)
+- **CI/CD:** CodeCommit, CodePipeline, CodeBuild, ECR, SSM Run Command
 
 ---

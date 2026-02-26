@@ -169,7 +169,59 @@ Replaced simple nav-card grid with a full **3-column layout**:
 
 ---
 
+## Quick Question Templates in Chat (Feb 24)
+
+Added clickable quick-question chips to the Penny chat panel that appear when chat history is empty.
+
+**Questions:**
+- "Hey Penny, what is my major expense?"
+- "Penny, how should I save more money toward my goals?"
+- "Penny, where am I overspending this month?"
+- "Hey Penny, give me a summary of my finances"
+
+**Implementation:**
+- Pill-shaped buttons rendered inside `db-chat-messages` when `chatHistory.length === 0`
+- On click: sets message state and programmatically submits the chat form via `requestSubmit()`
+- Chips disappear once conversation starts
+
+**Files Changed:**
+- `frontend/src/pages/Dashboard.tsx` — added quick question buttons in empty chat state
+- `frontend/src/pages/Dashboard.css` — added `.db-chat-empty`, `.db-quick-questions`, `.db-quick-q` styles
+
+---
+
 ## Git Cleanup (Feb 24)
 
 - `__pycache__/` was being tracked despite being in `.gitignore` (committed before rule existed)
 - Fix: `git rm -r --cached backend/app/__pycache__ backend/app/routers/__pycache__`
+
+---
+
+## Custom Domain Setup — coinbaby.click (Feb 24)
+
+**Goal:** Point the Route 53 domain `coinbaby.click` at the CloudFront frontend so users access the app via `http://coinbaby.click` instead of the raw CloudFront URL.
+
+**Why ACM is needed:** CloudFront requires an ACM certificate for any custom domain alias, even when `viewer_protocol_policy = "allow-all"` (HTTP still works). Since the stack is already in `us-east-1`, the cert is in the right region for CloudFront.
+
+**Terraform changes (`infra/terraform/frontend.tf`):**
+
+1. `aws_acm_certificate.frontend` — requests a cert for `coinbaby.click` with DNS validation
+2. `aws_route53_record.frontend_cert_validation` — CNAME for DNS validation (automatic via Route 53)
+3. `aws_acm_certificate_validation.frontend` — waits until cert is issued (~2-5 min)
+4. `aws_route53_record.frontend` — A alias record: `coinbaby.click` → CloudFront distribution
+5. Updated `aws_cloudfront_distribution.frontend`:
+   - Added `aliases = ["coinbaby.click"]`
+   - Swapped `cloudfront_default_certificate` for the ACM cert with `sni-only` and `TLSv1.2_2021`
+
+All resources are conditional on `route53_zone_id` + `frontend_domain_name` being set.
+
+**Other changes:**
+- `variables.tf` — added `frontend_domain_name` variable
+- `terraform.tfvars` — set `route53_zone_id` and `frontend_domain_name = "coinbaby.click"`
+
+**IAM issue:** `dalla-project-owner` lacked `acm:RequestCertificate`. Fixed with an inline policy granting `acm:*` on `*`.
+
+**Files Changed:**
+- `infra/terraform/frontend.tf` — ACM cert, DNS validation, Route 53 alias, CloudFront aliases + viewer_certificate
+- `infra/terraform/variables.tf` — added `frontend_domain_name`
+- `infra/terraform/terraform.tfvars` — set domain vars

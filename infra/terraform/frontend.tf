@@ -6,7 +6,8 @@ variable "frontend_bucket_name" {
 }
 
 locals {
-  frontend_bucket_name = var.frontend_bucket_name != "" ? var.frontend_bucket_name : "${local.project_name}-frontend-${data.aws_caller_identity.current.account_id}"
+  frontend_bucket_name          = var.frontend_bucket_name != "" ? var.frontend_bucket_name : "${local.project_name}-frontend-${data.aws_caller_identity.current.account_id}"
+  use_custom_frontend_domain    = var.route53_zone_id != "" && var.frontend_domain_name != ""
 }
 
 data "aws_caller_identity" "current" {}
@@ -79,6 +80,52 @@ resource "aws_s3_bucket_policy" "frontend" {
   depends_on = [aws_s3_bucket_public_access_block.frontend]
 }
 
+# ACM certificate for custom frontend domain (CloudFront requires one even for HTTP)
+resource "aws_acm_certificate" "frontend" {
+  count             = local.use_custom_frontend_domain ? 1 : 0
+  domain_name       = var.frontend_domain_name
+  validation_method = "DNS"
+
+  lifecycle { create_before_destroy = true }
+}
+
+resource "aws_route53_record" "frontend_cert_validation" {
+  for_each = local.use_custom_frontend_domain ? {
+    for dvo in aws_acm_certificate.frontend[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  } : {}
+
+  zone_id         = var.route53_zone_id
+  name            = each.value.name
+  type            = each.value.type
+  ttl             = 60
+  records         = [each.value.record]
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate_validation" "frontend" {
+  count                   = local.use_custom_frontend_domain ? 1 : 0
+  certificate_arn         = aws_acm_certificate.frontend[0].arn
+  validation_record_fqdns = [for r in aws_route53_record.frontend_cert_validation : r.fqdn]
+}
+
+# Route 53 alias pointing domain to CloudFront
+resource "aws_route53_record" "frontend" {
+  count   = local.use_custom_frontend_domain ? 1 : 0
+  zone_id = var.route53_zone_id
+  name    = var.frontend_domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
 # CloudFront distribution
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
@@ -86,6 +133,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   default_root_object  = "index.html"
   comment              = "${local.project_name} frontend"
   price_class          = "PriceClass_100"
+  aliases              = local.use_custom_frontend_domain ? [var.frontend_domain_name] : []
 
   origin {
     domain_name = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -132,7 +180,10 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = local.use_custom_frontend_domain ? false : true
+    acm_certificate_arn            = local.use_custom_frontend_domain ? aws_acm_certificate_validation.frontend[0].certificate_arn : null
+    ssl_support_method             = local.use_custom_frontend_domain ? "sni-only" : null
+    minimum_protocol_version       = local.use_custom_frontend_domain ? "TLSv1.2_2021" : null
   }
 
   tags = {
@@ -153,6 +204,11 @@ output "cloudfront_domain_name" {
 output "cloudfront_url" {
   description = "URL to reach the frontend via CloudFront"
   value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
+}
+
+output "frontend_url" {
+  description = "Frontend URL (custom domain if set, otherwise CloudFront)"
+  value       = local.use_custom_frontend_domain ? "http://${var.frontend_domain_name}" : "http://${aws_cloudfront_distribution.frontend.domain_name}"
 }
 
 output "frontend_api_url_placeholder" {

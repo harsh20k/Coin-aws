@@ -38,6 +38,8 @@ The IAM user/role used for Terraform (e.g. `dalla-project-owner`) must be able t
 | CodeCommit   | CreateRepository, GetRepository, etc.                                                                         |
 | CodeBuild    | CreateProject, StartBuild, etc.                                                                               |
 | CodePipeline | CreatePipeline, GetPipeline, etc.                                                                              |
+| ACM          | RequestCertificate, DescribeCertificate, DeleteCertificate (for custom domain cert)                             |
+| Route 53     | ChangeResourceRecordSets, GetHostedZone (for domain alias + ACM DNS validation)                                 |
 
 
 **Easiest:** attach these managed policies to the Terraform user (e.g. `dalla-project-owner`):
@@ -51,6 +53,8 @@ The IAM user/role used for Terraform (e.g. `dalla-project-owner`) must be able t
 - CloudWatchLogsFullAccess  
 - AmazonRDSFullAccess  
 - AmazonSSMFullAccess  
+- **AWSCertificateManagerFullAccess** (or inline `acm:*`)  
+- AmazonRoute53FullAccess  
 - **AWSCodeCommitFullAccess**  
 - **AWSCodeBuildAdminAccess**  
 - **AWSCodePipelineFullAccess**
@@ -94,7 +98,7 @@ terraform init
 terraform apply
 ```
 
-**Creates:** VPC, RDS, Cognito, ECR, backend EC2 (Elastic IP), S3, CloudFront, SSM, **CodeCommit repo**, **CodeBuild projects**, and **CodePipeline**. Backend runs only after the image exists (pipeline build or one-time manual push, see below). API URL: `terraform output api_url` (e.g. `http://<eip>:8000`).
+**Creates:** VPC, RDS, Cognito, ECR, backend EC2 (Elastic IP), S3, CloudFront, ACM cert, Route 53 records, SSM, **CodeCommit repo**, **CodeBuild projects**, and **CodePipeline**. If `frontend_domain_name` is set, the frontend is available at that domain (e.g. `http://coinbaby.click`). API URL: `terraform output api_url` (e.g. `http://<eip>:8000`).
 
 ---
 
@@ -192,7 +196,7 @@ Replace `<ACCOUNT_ID>` with your account ID (`aws sts get-caller-identity --quer
 ## 5. Smoke test
 
 - **Backend:** `terraform output api_url` → e.g. `GET /health`.
-- **Frontend:** Open the app and sign in with Cognito. Use the **HTTP** URL so the browser allows calls to the HTTP backend (mixed-content): change `https` to `http` in the CloudFront URL (e.g. `http://d3156omzi2icat.cloudfront.net`). If you use HTTPS, Wallets/API may show "Load failed" (see `notes/Feb 20.md`).
+- **Frontend:** Open `http://coinbaby.click` (or `terraform output frontend_url`) and sign in with Cognito. Use **http** (not https) so the browser allows calls to the HTTP backend without mixed-content blocking. If you use HTTPS, Wallets/API may show "Load failed" (see `notes/Feb 20.md`).
 
 ---
 
@@ -201,11 +205,11 @@ Replace `<ACCOUNT_ID>` with your account ID (`aws sts get-caller-identity --quer
 - **EC2 architecture:** EC2 is x86_64. On Apple Silicon (arm64) always use `docker build --platform linux/amd64`; otherwise EC2 fails with "no matching manifest for linux/amd64".
 - **user_data:** Runs only once at first boot (Docker, SSM params, backend container). If a step fails (image not in ECR, ECR pull or SSM fail), no container is created. Check `sudo cat /var/log/cloud-init-output.log` on EC2.
 - **Image before instance:** Push the backend image to ECR before (or right after) creating the EC2 instance. If you push later, user_data may have already failed; start the container manually (step 4, Case B) or replace the instance.
-- **Mixed content:** Backend is HTTP, frontend on CloudFront. CloudFront is `viewer_protocol_policy = "allow-all"` so you can open the app via **http://** (CloudFront domain) and avoid blocked HTTP API calls. Use the HTTP frontend URL when testing (step 6).
+- **Mixed content:** Backend is HTTP, frontend on CloudFront. CloudFront is `viewer_protocol_policy = "allow-all"` so you can open the app via **http://coinbaby.click** (or CloudFront domain) and avoid blocked HTTP API calls. Always use the HTTP URL when testing.
 - **After destroy + apply:** ECR is empty. Either run the pipeline (it will build and push the image, then deploy) or push the backend image manually (`--platform linux/amd64`), then SSH and run ECR login + `docker run` + `create_tables` (step 4), or replace the instance (`terraform taint aws_instance.backend` + `terraform apply`) so user_data runs again.
 - **RDS master password:** RDS disallows `/`, `@`, `"`, and space in the master password. The Terraform `random_password` for RDS uses `override_special` so only allowed specials (e.g. `!#$%&*()-_=+[]{}<>:?`) are used. If you see `InvalidParameterValue` for `MasterUserPassword`, ensure `rds.tf` has that override (see `notes/Feb 20.md`).
 - **DATABASE_URL password encoding:** The `override_special` characters include URL-special chars (`#`, `%`, `?`, `:`). The password in `database_url` must be wrapped with `urlencode()` — otherwise these chars corrupt the connection string and cause `InvalidPasswordError`. If you see `asyncpg.exceptions.InvalidPasswordError: password authentication failed`, check that `rds.tf` uses `urlencode(random_password.db_password.result)` in the `database_url` local (see `notes/Feb 25.md`).
 
 ---
 
-**Summary:** Fill `terraform.tfvars` → `terraform apply` → add CodeCommit as remote and `git push codecommit main` → pipeline builds backend, deploys to EC2, builds frontend and deploys to S3/CloudFront. Create DB tables once if the database is new (step 4).
+**Summary:** Fill `terraform.tfvars` (including `frontend_domain_name` and `route53_zone_id` for custom domain) → `terraform apply` → add CodeCommit as remote and `git push codecommit main` → pipeline builds backend, deploys to EC2, builds frontend and deploys to S3/CloudFront. Create DB tables once if the database is new (step 4). App available at `http://coinbaby.click`.

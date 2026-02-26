@@ -52,3 +52,9 @@ variable "api_domain_name" {
   default     = ""
 }
 
+variable "frontend_domain_name" {
+  description = "Domain name for the frontend (e.g. coinbaby.click). Requires route53_zone_id."
+  type        = string
+  default     = ""
+}
+

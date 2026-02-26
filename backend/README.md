@@ -1,6 +1,6 @@
-# Dalla API (FastAPI)
+# coinBaby API (FastAPI)
 
-REST API for the Dalla finance app. Uses PostgreSQL and Cognito JWT auth.
+REST API for the coinBaby finance app. Uses PostgreSQL and Cognito JWT auth.
 
 ## Setup
 
@@ -47,7 +47,7 @@ All endpoints except `GET /health` and (for first-time users) `PUT /users/me` re
 - `GET /transactions?wallet_id=&type=&date_from=&date_to=`, `POST /transactions`, `GET/PUT/DELETE /transactions/{id}`
 - `GET /budgets?period_start=&period_end=`, `POST /budgets`, `GET/PUT/DELETE /budgets/{id}`
 - `GET /goals?period_start=&period_end=`, `POST /goals`, `GET/PUT/DELETE /goals/{id}`
-- `POST /chat` — Stub; body `{"message": "..."}`, returns placeholder reply (wire to Bedrock later).
+- `POST /chat` — AI chat powered by Bedrock (Claude 3.5 Haiku); sends user financial context + message, returns AI response.
 
 ## Tests
 
