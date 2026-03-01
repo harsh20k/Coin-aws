@@ -111,95 +111,28 @@ This is a single-instance implementation and with simple infrastructure, we have
 
 coinBaby is a full-stack web application built on AWS infrastructure. The frontend is a React single-page application (SPA) served through CloudFront and S3. The backend is a FastAPI Python service running in Docker on EC2. The database is PostgreSQL on RDS. Authentication is managed by Cognito. AI chat is powered by AWS Bedrock (Claude Haiku 3.5).
 
-The architecture follows a clean separation of concerns: presentation (React), application logic (FastAPI), data persistence (PostgreSQL), and external services (Cognito, Bedrock).
+The architecture follows a clean separation of concerns: presentation (React), application logic (Python FastAPI), data persistence (PostgreSQL), and external services (Cognito, Bedrock).
 
 ---
 
 ### Component Integration Flow
 
-**User journey — from browser to response:**
+**User journey — browser to response:**
 
-1. **User opens `coinbaby.click`**
-   - DNS resolution via Route 53 → CloudFront distribution
-   - CloudFront fetches static files (HTML, JS, CSS) from S3 via OAI
-   - React app loads in browser
+1. **Open `coinbaby.click`**  
+   Route 53 resolves DNS → CloudFront → fetches static SPA from S3 → React app loads.
 
-2. **User signs up / logs in**
-   - Frontend sends credentials to Cognito (via AWS SDK)
-   - Cognito validates credentials, triggers Lambda (auto-confirmation)
-   - Returns JWT token to frontend
-   - Frontend stores token in localStorage
+2. **Sign up / Log in**  
+   Frontend sends credentials to Cognito (AWS SDK), which auto-confirms via Lambda, returns JWT to frontend (stored in localStorage).
 
-3. **User adds a transaction**
-   - Frontend sends POST to backend with JWT token in Authorization header
-   - Backend validates JWT, extracts user ID
-   - Backend inserts transaction into PostgreSQL (RDS)
-   - Returns success response to frontend
+3. **Add a transaction**  
+   Frontend sends POST to backend with JWT. Backend validates token, gets user ID, writes transaction to RDS, responds with success.
 
-4. **User asks Penny (AI chat): "How much did I spend on groceries?"**
-   - Frontend sends POST to `/api/chat` with user message + JWT
-   - Backend validates JWT, queries PostgreSQL for user's transactions
-   - Backend formats context (transactions, budgets, goals) as prompt
-   - Backend calls Bedrock API with prompt (Claude Haiku 3.5)
-   - Bedrock returns AI response
-   - Backend returns response to frontend
-   - Frontend displays Penny's answer in chat UI
+4. **AI chat with Penny**  
+   Frontend sends POST to `/api/chat` with message + JWT. Backend validates JWT, gathers user data, calls Bedrock (Claude Haiku 3.5), returns AI response to frontend.
 
-5. **User views dashboard**
-   - Frontend sends GET to `/api/dashboard` with JWT
-   - Backend validates JWT, queries PostgreSQL (aggregations, recent transactions)
-   - Returns summary data (total balance, spending by category, budget progress)
-   - Frontend renders charts and tables
-
-```mermaid
-sequenceDiagram
-  participant U as User
-  participant F as Frontend
-  participant C as CDN/S3
-  participant Co as Cognito
-  participant L as Lambda
-  participant B as Backend
-  participant R as RDS
-  participant Be as Bedrock
-
-  Note over U,Be: 1. Open site
-  U->>F: coinbaby.click
-  F->>C: resolve + fetch assets
-  C-->>F: static files
-  F-->>U: React app
-
-  Note over U,Be: 2. Sign up / Login
-  U->>F: credentials
-  F->>Co: auth
-  Co->>L: pre-sign-up
-  L-->>Co: autoConfirm
-  Co-->>F: JWT
-  F-->>U: logged in
-
-  Note over U,Be: 3. Add transaction
-  U->>F: transaction
-  F->>B: POST + JWT
-  B->>R: insert
-  R-->>B: ok
-  B-->>F: success
-
-  Note over U,Be: 4. Penny (AI chat)
-  U->>F: message
-  F->>B: POST /chat + JWT
-  B->>R: query context
-  R-->>B: data
-  B->>Be: prompt
-  Be-->>B: response
-  B-->>F: answer
-
-  Note over U,Be: 5. Dashboard
-  U->>F: view dashboard
-  F->>B: GET /dashboard + JWT
-  B->>R: aggregations
-  R-->>B: data
-  B-->>F: summary
-  F-->>U: charts
-```
+5. **View dashboard**  
+   Frontend requests `/api/dashboard` with JWT. Backend validates, queries RDS for user’s summary data, returns results, frontend renders charts/tables.
 
 ---
 
@@ -210,37 +143,29 @@ sequenceDiagram
 - Cognito (user identity, authentication tokens)
 - Bedrock (AI-generated responses)
 
-**Data formats:**
-- Frontend ↔ Backend: JSON over HTTP
-- Backend ↔ RDS: SQL queries 
-- Backend ↔ Bedrock: JSON API (request/response)
-- Backend ↔ Cognito: JWT tokens (RS256-signed JSON)
+**Data flow and formats:**
+- Communication between frontend and backend is via JSON over HTTP.
+- Backend interacts with RDS using SQL queries, and with Bedrock through its JSON API.
+- Authentication is handled using JWT tokens from Cognito.
 
-**Data storage:**
+**Data storage overview:**
 
-| Data type | Storage | Size (per user) | Retention |
-|---|---|---|---|
-| User profile | RDS (`users` table) | ~1 KB | Permanent |
-| Wallets | RDS (`wallets` table) | ~500 bytes each | Permanent |
-| Transactions | RDS (`transactions` table) | ~300 bytes each | Permanent |
-| Budgets | RDS (`budgets` table) | ~200 bytes each | Permanent |
-| Goals | RDS (`goals` table) | ~200 bytes each | Permanent |
-| Chat messages | Not stored (future: RDS) | ~500 bytes each | N/A |
-| Session tokens (JWT) | Frontend (localStorage) | ~2 KB | 1 hour (token expiry) |
-| Frontend assets | S3 | ~5 MB total | Permanent |
-| Docker images | ECR | ~500 MB per image | Last 3 images |
-| Build artifacts | S3 | ~10 MB per build | 30 days |
+| Data type               | Storage                      | Typical size     | Retention         |
+|-------------------------|------------------------------|------------------|-------------------|
+| User data & profiles    | RDS PostgreSQL               | Small per user   | Permanent         |
+| Wallets, transactions   | RDS PostgreSQL               | Small per record | Permanent         |
+| Budgets and goals       | RDS PostgreSQL               | Small per record | Permanent         |
+| Chat messages           | Not stored (future: RDS)     | N/A              | N/A               |
+| JWT tokens              | Frontend (localStorage)      | ~2 KB            | 1 hour            |
+| Frontend assets         | S3                           | ~5 MB total      | Permanent         |
+| Docker images           | ECR                          | ~500 MB/image    | Last 3 images     |
+| Build artifacts         | S3                           | ~10 MB/build     | 30 days           |
 
-**Estimated data volume (100 users, 1 year):**
-- Transactions: 100 users × 50 transactions/month × 12 months × 300 bytes = **18 MB**
-- Wallets: 100 users × 3 wallets × 500 bytes = **150 KB**
-- Budgets: 100 users × 5 budgets × 200 bytes = **100 KB**
-- Goals: 100 users × 3 goals × 200 bytes = **60 KB**
-- **Total data: ~20 MB** (well within RDS free tier 20 GB)
+**Estimated volume:**  
+For a sample 100-user, 1-year scenario, total data stored in RDS is well below 20 MB, far within the free tier.
 
-**Database schema:**
-
-Six main tables store all application data: `users` (Cognito sub, email), `wallets` (user_id, name), `subcategories` (transaction_type, name, is_system, optional user_id for custom categories), `transactions` (wallet_id, type, subcategory_id, amount_cents, description, tags, transaction_date), `budgets` (user_id, subcategory_id, limit_cents, period_start/end), and `goals` (user_id, title, target_cents, goal_type, period_start/end). All tables reference `user_id` for data isolation. Foreign key constraints ensure referential integrity.
+**Note:**  
+All critical user and application data is stored in normalized relational tables in RDS, with foreign key constraints protecting data integrity and all user data isolated per user account. The schema is purposefully designed to accommodate expansion (custom categories, budgeting, multi-wallet, etc.) without tight coupling or redundancy.
 
 ---
 
@@ -248,14 +173,13 @@ Six main tables store all application data: `users` (Cognito sub, email), `walle
 
 **Frontend — JavaScript (React)**
 - **Why React:** Component-based UI, large ecosystem, excellent for SPAs
-- **Key libraries:** `react-router-dom` (routing), `axios` (HTTP), `recharts` (charts), `@aws-amplify/auth` (Cognito)
 - **Code required for:** UI components (login, dashboard, transaction form, chat), state management, API client, authentication flow
 
 **Backend — Python (FastAPI)**
 - **Why Python:** Clean syntax, rapid development, strong AWS SDK support
 - **Why FastAPI:** Fast, automatic API docs (OpenAPI), async support, type hints
 - **Key libraries:** `fastapi`, `sqlalchemy` (ORM), `psycopg2` (PostgreSQL), `boto3` (AWS SDK), `python-jose` (JWT), `pydantic` (validation)
-- **Code required for:** API endpoints (CRUD operations), JWT authentication middleware, database connection pooling, Bedrock API integration, SSM Parameter Store integration
+- **Code required for:** API endpoints (CRUD operations), JWT authentication middleware, database access (SQLAlchemy async engine and session per request), Bedrock API integration, SSM Parameter Store integration
 
 **Infrastructure — HCL (Terraform)**
 - **Why Terraform:** Infrastructure as code, reproducible deployments, state management
@@ -277,7 +201,7 @@ Six main tables store all application data: `users` (Cognito sub, email), `walle
 
 1. **Terraform:** Run `terraform init` and `terraform apply` to create all AWS resources (VPC, EC2, RDS, S3, CloudFront, Cognito, ECR, CodeCommit, CodeBuild, CodePipeline, etc.).
 
-2. **Git remote:** Add CodeCommit as remote and push: `git remote add codecommit <url>` and `git push codecommit main` (pipeline automatically creates database tables on first run).
+2. **Git push:** Add CodeCommit as remote and push: `git remote add codecommit <url>` and `git push codecommit main` (pipeline automatically creates database tables on first run).
 
 **Continuous deployment (every code push):**
 
@@ -290,91 +214,37 @@ That's it—just `terraform apply` for infrastructure and `git push` for code up
 
 ---
 
-### Component Integration Details
+### How the App Components Work Together
 
-**Frontend → Cognito:**
-- Uses AWS Amplify SDK with Cognito User Pool ID and App Client ID
-- Sign-up calls `Auth.signUp()` → Cognito validates → Lambda trigger auto-confirms
-- Login calls `Auth.signIn()` → Cognito validates → returns JWT with user's `sub`, email, expiry
+- **Frontend (React app):** Runs in the browser. Handles signup, login, and all user interactions. Talks to AWS Cognito (for authentication) and sends API requests to the backend with a JWT for each user.
+- **Cognito:** Manages user accounts and logins. Returns a JWT token after successful authentication, which the frontend attaches to every API call.
+- **Backend (FastAPI on EC2):** Receives API requests from the frontend. Verifies JWTs with Cognito, uses the token to identify the user, and enforces per-user data isolation. Handles all app logic, talks to the database, and retrieves config securely from AWS SSM Parameter Store.
+- **Database (RDS, PostgreSQL):** Stores all application data (users, transactions, etc.) in a relational schema. Only accessible from backend EC2, with credentials managed in SSM.
+- **AI (Bedrock, Claude Haiku):** For chat and advice, the backend builds a prompt from the user's data and sends it to Bedrock's Claude model for a response.
+- **File storage & Hosting:** The frontend build is uploaded to S3 and served globally via CloudFront, with Route 53 providing the DNS name. CloudFront only allows access to S3 via a secure Origin Access Identity.
+- **CI/CD:** On each code push, CodePipeline builds and deploys the backend (Docker on EC2 via ECR) and frontend (React ✚ S3/CloudFront). Updates are automatic.
 
-**Frontend → Backend:**
-- Base URL: `http://<ec2-public-ip>:8000/api`
-- Every request includes `Authorization: Bearer <jwt-token>` header
-- Sends/receives JSON payloads for all CRUD operations
+**Example Flow — Adding a Transaction:**  
+User submits a new expense in the web app. The frontend sends this (with their JWT) to the backend API. The backend verifies the token, checks the account, inserts the new record into the database, updates balances, and responds to the frontend. The user sees their updated info in the app, all within a half second or less.
 
-**Backend → Cognito:**
-- Fetches Cognito's public keys (JWKS) from Cognito's well-known endpoint
-- Caches keys in memory
-- FastAPI dependency validates JWT on every protected route using RS256 algorithm
-- Extracts `sub` claim as user ID
+```mermaid
+flowchart TD
+  User((User))
+  Frontend[Frontend\nReact]
+  Cognito[Cognito]
+  Backend[Backend\nFastAPI]
+  RDS[(RDS\nPostgreSQL)]
+  Bedrock[Bedrock\nClaude]
+  S3[S3 + CloudFront]
 
-**Backend → RDS:**
-- Connection pool managed by SQLAlchemy (pool_size=5, max_overflow=10)
-- Credentials fetched from SSM Parameter Store at startup via IAM role
-- Uses SQLAlchemy ORM for type-safe queries
-- All queries scoped by `user_id` for data isolation
-
-**Backend → Bedrock:**
-- Uses boto3 Bedrock Runtime client
-- Constructs prompt with user's transaction/budget data + question
-- Calls Claude Haiku 3.5 model (`anthropic.claude-3-5-haiku-20241022-v1:0`)
-- Returns AI-generated financial advice to frontend
-
-**EC2 → ECR:**
-- EC2 IAM role has ECR read permissions
-- EC2 authenticates to ECR using AWS SDK credentials
-- Pulls Docker images via `docker pull` command
-
-**CloudFront → S3:**
-- CloudFront origin configured with Origin Access Identity (OAI)
-- S3 bucket policy allows only the OAI to read objects
-- User requests go through CloudFront; direct S3 access returns 403 Forbidden
-- React router handles client-side routing (all paths serve `/index.html`)
-
-**Route 53 → CloudFront:**
-- Alias record maps `coinbaby.click` to CloudFront distribution domain
-- ACM certificate validates domain ownership via DNS CNAME record
-
----
-
-### Data Flow Example — Complete Transaction
-
-**Scenario:** User adds expense: "Paid $45 for groceries at Whole Foods"
-
-1. **Frontend:** User fills transaction form, clicks "Add Transaction", JavaScript sends POST to `/api/transactions` with JWT + transaction data (wallet_id, type, amount, category, description, date)
-
-2. **Backend:** Receives request, validates JWT (extracts user_id), verifies wallet belongs to user, inserts transaction into RDS, updates wallet balance, commits transaction, returns success response
-
-3. **Database:** Receives INSERT for transaction and UPDATE for wallet balance via connection pool, commits both in single transaction (ACID guarantees)
-
-4. **Frontend:** Receives 200 OK response, updates local state, re-fetches wallet balance, shows success notification
-
-**Total time:** ~200-500ms (JWT validation 50ms + DB query 100ms + network 50-300ms)
-
----
-
-### Security Integration Points
-
-- **Frontend stores JWT:** localStorage (convenient but XSS risk; acceptable for project scope)
-- **Backend validates JWT on every request:** Stateless authentication, no session storage
-- **RDS credentials never in code:** Fetched from SSM Parameter Store at runtime via IAM role
-- **S3 bucket private:** Only CloudFront OAI can access frontend assets
-- **EC2 → RDS traffic:** Within VPC, never leaves AWS network
-- **HTTP backend:** Biggest security gap; traffic between browser and EC2 is unencrypted (see Security section)
-
----
-
-### Monitoring and Observability
-
-**CloudWatch Logs:**
-- FastAPI application logs streamed to CloudWatch
-- Includes request logs, errors, JWT validation failures, DB query times
-
-**CloudWatch Metrics:**
-- EC2: CPU, memory, network, disk I/O
-- RDS: connections, CPU, read/write IOPS, storage
-- Lambda: invocations, duration, errors
-- CloudFront: requests, data transfer, cache hit ratio
+  User --> Frontend
+  Frontend -->|login / JWT| Cognito
+  Cognito -->|token| Frontend
+  Frontend -->|API + JWT| Backend
+  Backend -->|read/write| RDS
+  Backend -->|chat| Bedrock
+  Frontend -->|served from| S3
+```
 
 ---
 
