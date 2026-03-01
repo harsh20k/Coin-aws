@@ -113,6 +113,10 @@ coinBaby is a full-stack web application built on AWS infrastructure. The fronte
 
 The architecture follows a clean separation of concerns: presentation (React), application logic (Python FastAPI), data persistence (PostgreSQL), and external services (Cognito, Bedrock).
 
+![[coinBaby.drawio.png]]
+
+![[coinBaby-Detailed.drawio.png]]
+
 ---
 
 ### Component Integration Flow
