@@ -6,6 +6,11 @@ A **smart finance advisor** web app on AWS. Users track transactions across mult
 
 ---
 
+# Demo + Architecture Explainer 
+
+https://github.com/user-attachments/assets/90ead46e-1a5a-45b9-a22b-181f64a1f3e4
+
+
 ## Architecture
 
 ```mermaid
